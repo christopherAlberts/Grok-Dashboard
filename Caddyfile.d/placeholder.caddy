@@ -1,0 +1,3 @@
+# Placeholder so `import /etc/caddy/Caddyfile.d/*.caddy` never fails.
+# Machine-local Host overlays (Coastal Hound, etc.) are installed here
+# by scripts/install-platform.sh and are not part of the platform repo.

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>App not published · Grok Dashboards</title>
+  <style>
+    :root { color-scheme: dark; --ink:#e8e1d4; --muted:#9a917f; --bg:#14120f; --line:#3a342b; --accent:#d4a017; }
+    * { box-sizing: border-box; }
+    body { margin:0; font: 18px/1.5 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; background:var(--bg); color:var(--ink); }
+    .wrap { max-width: 40rem; margin: 18vh auto; padding: 0 1.5rem; }
+    .kicker { letter-spacing:.18em; text-transform:uppercase; font-size:.72rem; color:var(--accent); }
+    h1 { font-weight:600; font-size:2rem; margin:.4rem 0 1rem; }
+    p { color:var(--muted); }
+    code { font-family: ui-monospace, "IBM Plex Mono", monospace; font-size:.85em; color:var(--ink); }
+    a { color:var(--accent); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <p class="kicker">Grok Dashboards</p>
+    <h1>Nothing published here yet</h1>
+    <p>This hostname is routed by Caddy, but there is no folder for this slug under <code>/var/www/apps</code>.</p>
+    <p>Add <code>apps/&lt;slug&gt;</code> in the platform repo, then run <code>./scripts/deploy-app.sh &lt;slug&gt;</code>.</p>
+    <p><a href="https://grok_dashboards.streblainnovations.com/">Back to the portal</a></p>
+  </main>
+</body>
+</html>

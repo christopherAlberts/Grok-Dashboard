@@ -1,0 +1,58 @@
+{
+	auto_https off
+	admin localhost:2019
+}
+
+# Optional machine-local overlays (e.g. reverse_proxy for other Hosts that
+# historically used :8080). Empty-file-safe: install-platform.sh always
+# drops a comment-only placeholder in this directory.
+import /etc/caddy/Caddyfile.d/*.caddy
+
+# Apex / portal
+http://grok_dashboards.streblainnovations.com:8080 {
+	root * /var/www/apps/_index
+	encode gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer-when-downgrade
+		X-Frame-Options SAMEORIGIN
+	}
+	@hidden {
+		path /.git /.git/* /.env /.env.* /deploy.log
+	}
+	respond @hidden 404
+	file_server {
+		hide .git .gitignore .env
+	}
+}
+
+# Wildcard apps: leftmost label is the slug
+# races.grok_dashboards.streblainnovations.com → /var/www/apps/races
+http://*.grok_dashboards.streblainnovations.com:8080 {
+	root * /var/www/apps/{http.request.host.labels.3}
+	encode gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer-when-downgrade
+		X-Frame-Options SAMEORIGIN
+		X-App-Slug {http.request.host.labels.3}
+	}
+	@hidden {
+		path /.git /.git/* /.env /.env.*
+	}
+	respond @hidden 404
+	handle_errors {
+		rewrite * /404.html
+		root * /var/www/apps/_index
+		file_server
+	}
+	try_files {path} {path}/ /index.html
+	file_server {
+		hide .git .gitignore .env
+	}
+}
+
+# Unmatched Host on :8080 (LAN probes without the public Host header)
+:8080 {
+	respond "Grok Dashboards origin on :8080. Send Host grok_dashboards.streblainnovations.com or <slug>.grok_dashboards.streblainnovations.com" 200
+}

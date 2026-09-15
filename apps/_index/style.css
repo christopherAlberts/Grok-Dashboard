@@ -1,0 +1,121 @@
+:root {
+  color-scheme: dark;
+  --bg: #14120f;
+  --bg-card: #1c1914;
+  --ink: #e8e1d4;
+  --muted: #9a917f;
+  --line: #3a342b;
+  --accent: #d4a017;
+  --accent-dim: #8a6a12;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #2a2318 0%, transparent 50%),
+    var(--bg);
+  color: var(--ink);
+  font: 18px/1.55 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+}
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--ink); }
+
+.page {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 4rem;
+}
+
+.kicker {
+  margin: 0 0 .75rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  font-size: .72rem;
+  color: var(--accent);
+  font-family: ui-monospace, "IBM Plex Mono", "SF Mono", Menlo, monospace;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 .75rem;
+}
+
+.lede {
+  color: var(--muted);
+  max-width: 38rem;
+  margin: 0 0 2.25rem;
+}
+
+.pattern {
+  font-family: ui-monospace, "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  font-size: .92rem;
+  color: var(--ink);
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: .85rem 1rem;
+  margin: 0 0 2.5rem;
+  overflow-x: auto;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  display: block;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.15rem 1.25rem;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .15s ease, transform .15s ease;
+}
+
+.card:hover {
+  border-color: var(--accent-dim);
+  transform: translateY(-1px);
+  color: inherit;
+}
+
+.card h2 {
+  margin: 0 0 .35rem;
+  font-size: 1.25rem;
+}
+
+.card p { margin: 0; color: var(--muted); font-size: .95rem; }
+.card .url {
+  margin-top: .65rem;
+  font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+  font-size: .78rem;
+  color: var(--accent);
+}
+
+.empty {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 1.5rem;
+  color: var(--muted);
+}
+
+footer {
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+code {
+  font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+  font-size: .86em;
+  color: var(--ink);
+}
