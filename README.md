@@ -35,6 +35,8 @@ mkdir -p apps/my-app
 
 That app is then live at `https://my-app.grok_dashboards.streblainnovations.com/` once the wildcard tunnel/DNS exists.
 
+From this admin checkout the script uses sudo (the live tree is owned by `deploy`, who cannot read `/home/admin`). Remote agents should SSH as `deploy` and use `/home/deploy/Grok-Dashboard`.
+
 Idempotent: run the same command again after edits. It rsyncs, commits inside `/var/www/apps/<slug>`, and appends `/var/www/apps/_logs/deploy.log`.
 
 Sync everything currently in `apps/`:

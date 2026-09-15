@@ -91,7 +91,9 @@ ensure_www_tree() {
   install -d -m 0755 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APPS_ROOT/_logs"
   install -d -m 0755 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APPS_ROOT/races"
 
-  if [[ ! -f "$DEPLOY_LOG" ]]; then
+  if [[ -f "$DEPLOY_LOG" ]]; then
+    chattr -a "$DEPLOY_LOG" 2>/dev/null || true
+  else
     umask 022
     sudo -u "$DEPLOY_USER" touch "$DEPLOY_LOG"
   fi
@@ -173,12 +175,27 @@ main() {
   install_sudoers
 
   # Live tree must be writable by deploy before sync.
+  # append-only (chattr +a) on deploy.log blocks chown; lift it briefly.
+  if [[ -f "$DEPLOY_LOG" ]]; then
+    chattr -a "$DEPLOY_LOG" 2>/dev/null || true
+  fi
   chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APPS_ROOT"
+  chmod -R u+rwX,go+rX "$APPS_ROOT"
 
-  sudo -u "$DEPLOY_USER" -H bash -lc "cd '$REPO_ROOT' && ./scripts/sync-www.sh"
+  # deploy cannot traverse /home/admin. Keep a working copy in deploy's home,
+  # and run the first sync as root then chown (git objects must end up deploy-owned).
+  local deploy_src="/home/${DEPLOY_USER}/Grok-Dashboard"
+  install -d -m 0755 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$deploy_src"
+  rsync -a --delete \
+    --exclude '.git/' \
+    "$REPO_ROOT"/ "$deploy_src"/
+  chown -R "$DEPLOY_USER:$DEPLOY_USER" "$deploy_src"
 
-  # Caddy (user caddy) needs to read published files.
+  "$REPO_ROOT/scripts/sync-www.sh"
+  chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APPS_ROOT"
   chmod -R a+rX "$APPS_ROOT"
+  chmod 0644 "$DEPLOY_LOG"
+  chattr +a "$DEPLOY_LOG" 2>/dev/null || log "note: could not re-apply append-only on deploy.log"
 
   enable_caddy
   record_status "after"

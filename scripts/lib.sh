@@ -27,14 +27,16 @@ ensure_app_git() {
   export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-deploy@localhost}"
   export GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-Grok Dashboard Deploy}"
   export GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-deploy@localhost}"
+  # Mixed root/deploy ownership is expected during install.
+  local git=(git -c "safe.directory=$dest" -c "safe.directory=*")
   if [[ ! -d "$dest/.git" ]]; then
-    git -C "$dest" init -q
+    "${git[@]}" -C "$dest" init -q
   fi
-  git -C "$dest" add -A
-  if git -C "$dest" diff --cached --quiet 2>/dev/null; then
-    git -C "$dest" rev-parse --short HEAD 2>/dev/null || echo "none"
+  "${git[@]}" -C "$dest" add -A
+  if "${git[@]}" -C "$dest" diff --cached --quiet 2>/dev/null; then
+    "${git[@]}" -C "$dest" rev-parse --short HEAD 2>/dev/null || echo "none"
     return 0
   fi
-  git -C "$dest" -c user.name="$GIT_AUTHOR_NAME" -c user.email="$GIT_AUTHOR_EMAIL" commit -q -m "$message"
-  git -C "$dest" rev-parse --short HEAD
+  "${git[@]}" -C "$dest" -c user.name="$GIT_AUTHOR_NAME" -c user.email="$GIT_AUTHOR_EMAIL" commit -q -m "$message"
+  "${git[@]}" -C "$dest" rev-parse --short HEAD
 }

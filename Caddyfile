@@ -1,5 +1,6 @@
 {
 	auto_https off
+	http_port 8080
 	admin localhost:2019
 }
 

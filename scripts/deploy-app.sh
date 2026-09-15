@@ -8,6 +8,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
+# Dest is owned by deploy; source often lives under /home/admin (unreadable to deploy).
+# Root can read the repo and write the live tree, then chown back to deploy.
+if [[ "$(id -un)" != "deploy" && "$(id -u)" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <slug> [source-dir]" >&2
   exit 2
@@ -50,6 +56,13 @@ commit="$(ensure_app_git "$dest" "deploy ${slug} from ${source_dir} (platform ${
 if [[ -x "$SCRIPT_DIR/generate-index.sh" ]]; then
   "$SCRIPT_DIR/generate-index.sh" "$APPS_ROOT" "$APPS_ROOT/_index/index.html" || true
   ensure_app_git "$APPS_ROOT/_index" "refresh portal listing after ${slug}" >/dev/null || true
+fi
+
+if [[ "$(id -u)" -eq 0 ]] && id deploy >/dev/null 2>&1; then
+  chown -R deploy:deploy "$dest" 2>/dev/null || true
+  if [[ -d "$APPS_ROOT/_index" ]]; then
+    chown -R deploy:deploy "$APPS_ROOT/_index" 2>/dev/null || true
+  fi
 fi
 
 log_deploy "$slug" "deploy" "$commit" "source=${source_dir} platform=${platform_commit}"

@@ -7,6 +7,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
+if [[ "$(id -un)" != "deploy" && "$(id -u)" -ne 0 ]]; then
+  exec sudo -E "$0" "$@"
+fi
+
 if [[ ! -d "$APPS_ROOT" ]]; then
   echo "Live apps root missing: $APPS_ROOT (run scripts/install-platform.sh first)" >&2
   exit 1
