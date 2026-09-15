@@ -12,17 +12,17 @@
     <h1>Grok Dashboards</h1>
     <p class="lede">
       A shared host for internal sites. Each folder under <code>apps/</code> is a live
-      subdomain at <code>&lt;slug&gt;.streblainnovations.com</code> (not nested under dash — Cloudflare Universal SSL cannot cover nested wildcards).
+      path on this one hostname. New apps do not need a Cloudflare change.
     </p>
-    <p class="pattern">https://&lt;app-slug&gt;.streblainnovations.com/</p>
+    <p class="pattern">https://dash.streblainnovations.com/&lt;app-slug&gt;/</p>
 
     <h2 class="kicker" style="margin-bottom:1rem">Published apps</h2>
     <div class="grid" id="app-list">
 <!-- APPS_START -->
-      <a class="card" href="https://races.streblainnovations.com/">
+      <a class="card" href="https://dash.streblainnovations.com/races/">
         <h2>races</h2>
         <p>Garden Route race dashboard (Sep 2026–Feb 2027).</p>
-        <p class="url">races.streblainnovations.com</p>
+        <p class="url">dash.streblainnovations.com/races/</p>
       </a>
 <!-- APPS_END -->
     </div>

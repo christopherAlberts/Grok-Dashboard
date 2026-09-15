@@ -1,29 +1,31 @@
 # Grok Dashboards
 
-Reusable static-site host on this machine. New dashboards are folders. They become live as **first-level subdomains** of `streblainnovations.com` (not nested under `dash`). Cloudflare Universal SSL covers `*.streblainnovations.com` but not `*.dash.streblainnovations.com`.
+Reusable static-site host on this machine. New dashboards are folders. They become live as **paths** on one hostname. **No Cloudflare change is required for a new app.**
 
 ## URLs
 
 | What | URL |
 | --- | --- |
 | Portal | https://dash.streblainnovations.com/ |
-| An app | https://`<slug>`.streblainnovations.com/ |
-| Race dashboard | https://races.streblainnovations.com/ |
+| An app | https://dash.streblainnovations.com/`<slug>`/ |
+| Race dashboard | https://dash.streblainnovations.com/races/ |
 
 LAN origin: `http://192.168.0.251:8080` (Caddy, HTTP only). Cloudflare Tunnel terminates TLS.
 
 ## How a request is served
 
-1. Browser hits `https://races.streblainnovations.com`.
-2. Cloudflare DNS (proxied CNAME) sends the name into the existing tunnel.
+1. Browser hits `https://dash.streblainnovations.com/races/`.
+2. Cloudflare DNS (one proxied CNAME: `dash`) sends that name into the existing tunnel.
 3. `cloudflared` on this host forwards HTTP to `127.0.0.1:8080`.
-4. Caddy reads the `Host` header:
-   - `dash.streblainnovations.com` → `/var/www/apps/_index`
-   - `races.streblainnovations.com` → `/var/www/apps/races`
-   - `<slug>.streblainnovations.com` → `/var/www/apps/<slug>` **only if that folder exists** (other tunnel hosts are not stolen)
+4. Caddy reads Host `dash.streblainnovations.com` and the path:
+   - `/` → `/var/www/apps/_index` (portal)
+   - `/<slug>/*` → `/var/www/apps/<slug>/` (prefix stripped so relative assets like `images/` work)
+   - only if that folder exists; `_index` and `_logs` are not public slugs
 5. The live files are copies of `apps/` in this git repo.
 
 Coastal Hound Host names that still arrive on :8080 are reverse-proxied to nginx :8084.
+
+`races.streblainnovations.com` 301s to `https://dash.streblainnovations.com/races/` if someone still uses the old host.
 
 ## Add a new app (one command)
 
@@ -34,7 +36,9 @@ mkdir -p apps/my-app
 ./scripts/deploy-app.sh my-app
 ```
 
-That app is then live at `https://my-app.streblainnovations.com/` after Cloudflare has a proxied CNAME + tunnel public hostname for that slug (same origin `http://127.0.0.1:8080`). Caddy does not need a reload if the folder exists.
+That app is then live at **https://dash.streblainnovations.com/my-app/**. Caddy does not reload. Cloudflare does not change.
+
+Use **relative** asset paths (`images/hero.jpg`), not root-absolute (`/images/hero.jpg`).
 
 From this admin checkout the script uses sudo (the live tree is owned by `deploy`, who cannot read `/home/admin`). Remote agents should SSH as `deploy` and use `/home/deploy/Grok-Dashboard`.
 
@@ -66,16 +70,13 @@ Live tree: `/var/www/apps/<slug>/` owned by user `deploy`.
 
 ## Cloudflare
 
-This repo cannot log into Cloudflare. In Zero Trust, these public hostnames must point at **this Caddy**:
+Only **one** public hostname is required:
 
 - `dash.streblainnovations.com` → `http://127.0.0.1:8080`
-- `races.streblainnovations.com` → `http://127.0.0.1:8080`
 
-Do **not** use `*.dash.streblainnovations.com` (nested wildcard; no free SSL). Do not point Grok names at `:8111`.
+Do not add `*.dash` or a new hostname per app. Do not point this name at `:8111`.
 
 Use `http://192.168.0.251:8080` only if `cloudflared` runs on a **different** machine.
-
-DNS (proxied CNAME) `dash` and `races` → the same `*.cfargotunnel.com` hostname.
 
 Step-by-step: [docs/cloudflare.md](docs/cloudflare.md).
 

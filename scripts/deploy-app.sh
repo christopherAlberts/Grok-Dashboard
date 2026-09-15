@@ -68,5 +68,5 @@ fi
 log_deploy "$slug" "deploy" "$commit" "source=${source_dir} platform=${platform_commit}"
 
 echo "Deployed ${slug} → ${dest}"
-echo "URL: https://${slug}.${APP_BASE_DOMAIN}/"
+echo "URL: https://${PORTAL_DOMAIN}/${slug}/"
 echo "Logged: ${DEPLOY_LOG}"

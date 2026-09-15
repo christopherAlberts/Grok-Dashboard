@@ -41,10 +41,10 @@ for dir in "$APPS_DIR"/*/; do
   case "$name" in
     races) blurb="Garden Route race dashboard (Sep 2026–Feb 2027)." ;;
   esac
-  cards+="      <a class=\"card\" href=\"https://${name}.${APP_BASE_DOMAIN}/\">
+  cards+="      <a class=\"card\" href=\"https://${PORTAL_DOMAIN}/${name}/\">
         <h2>${name}</h2>
         <p>${blurb}</p>
-        <p class=\"url\">${name}.${APP_BASE_DOMAIN}</p>
+        <p class=\"url\">${PORTAL_DOMAIN}/${name}/</p>
       </a>
 "
 done

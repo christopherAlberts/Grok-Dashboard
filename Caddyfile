@@ -9,72 +9,59 @@
 # drops a comment-only placeholder in this directory.
 import /etc/caddy/Caddyfile.d/*.caddy
 
-# Portal
+# Single public hostname. New apps are URL paths — no Cloudflare change.
 http://dash.streblainnovations.com:8080 {
-	root * /var/www/apps/_index
 	encode gzip
 	header {
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer-when-downgrade
 		X-Frame-Options SAMEORIGIN
 	}
+
 	@hidden {
 		path /.git /.git/* /.env /.env.* /deploy.log
+		path_regexp hidden (?i)^/.*/(\.git|\.env)(/|$)
 	}
 	respond @hidden 404
-	file_server {
-		hide .git .gitignore .env
-	}
-}
 
-# Explicit first app (Cloudflare Universal SSL covers *.streblainnovations.com, not *.dash.*)
-http://races.streblainnovations.com:8080 {
-	root * /var/www/apps/races
-	encode gzip
-	header {
-		X-Content-Type-Options nosniff
-		Referrer-Policy no-referrer-when-downgrade
-		X-Frame-Options SAMEORIGIN
-		X-App-Slug races
-	}
-	@hidden {
-		path /.git /.git/* /.env /.env.*
-	}
-	respond @hidden 404
-	file_server {
-		hide .git .gitignore .env
-	}
-}
+	# /races → /races/ so relative assets (images/...) resolve under the app path
+	@bareApp path_regexp bare ^/([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)$
+	redir @bareApp {http.request.uri.path}/ 308
 
-# Future apps: <slug>.streblainnovations.com → /var/www/apps/<slug>
-# Only if that folder exists. More-specific site blocks (dash, races, Coastal Hound)
-# win first, so other tunnel hostnames are not stolen.
-http://*.streblainnovations.com:8080 {
-	@published file /var/www/apps/{http.request.host.labels.2}/index.html
-	handle @published {
-		root * /var/www/apps/{http.request.host.labels.2}
-		encode gzip
-		header {
-			X-Content-Type-Options nosniff
-			Referrer-Policy no-referrer-when-downgrade
-			X-Frame-Options SAMEORIGIN
-			X-App-Slug {http.request.host.labels.2}
+	# /<slug>/* → /var/www/apps/<slug>/  (handle_path: strip /<slug> prefix)
+	# Slug regexp excludes reserved _index / _logs (leading underscore).
+	@app path_regexp app ^/([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(/.*)?$
+	handle @app {
+		@published file /var/www/apps/{re.app.1}/index.html
+		handle @published {
+			uri strip_prefix /{re.app.1}
+			root * /var/www/apps/{re.app.1}
+			header X-App-Slug {re.app.1}
+			try_files {path} {path}/ /index.html
+			file_server {
+				hide .git .gitignore .env
+			}
 		}
-		@hidden {
-			path /.git /.git/* /.env /.env.*
+		handle {
+			respond "No dashboard published at this path." 404
 		}
-		respond @hidden 404
-		try_files {path} {path}/ /index.html
+	}
+
+	# Portal at /
+	handle {
+		root * /var/www/apps/_index
 		file_server {
 			hide .git .gitignore .env
 		}
 	}
-	handle {
-		respond "No dashboard published for this hostname." 404
-	}
+}
+
+# Old subdomain → path URL
+http://races.streblainnovations.com:8080 {
+	redir https://dash.streblainnovations.com/races{uri} 301
 }
 
 # Unmatched Host on :8080 (LAN probes without the public Host header)
 :8080 {
-	respond "Grok Dashboards origin on :8080. Send Host dash.streblainnovations.com or races.streblainnovations.com" 200
+	respond "Grok Dashboards origin on :8080. Send Host dash.streblainnovations.com (portal /<slug>/ for apps)" 200
 }

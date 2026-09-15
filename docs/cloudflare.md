@@ -2,14 +2,12 @@
 
 Christopher must do these clicks. This host cannot access the Cloudflare account.
 
-**Goal:** portal + each app as a **first-level** subdomain of `streblainnovations.com`, both through the **existing** tunnel, both to Caddy on this machine.
+**Goal:** one public hostname. Apps are URL **paths**, so a new dashboard does **not** need a new Cloudflare DNS record or public hostname.
 
-Public names (subdomains, not paths — and **not** nested under `dash`):
+Public names:
 
 - `https://dash.streblainnovations.com/` — portal
-- `https://races.streblainnovations.com/` — Garden Route race dashboard
-
-Cloudflare Universal SSL covers `*.streblainnovations.com`. It does **not** cover `*.dash.streblainnovations.com`, so apps must not use that nested pattern.
+- `https://dash.streblainnovations.com/<slug>/` — an app (example: `races`)
 
 Origin on this Pi:
 
@@ -34,16 +32,15 @@ Origin on this Pi:
 ## B. DNS (zone `streblainnovations.com`)
 
 1. Cloudflare dashboard → **streblainnovations.com** → **DNS** → **Records**.
-2. Add (or edit) these records. Proxy status = **Proxied** (orange cloud).
+2. Add (or edit) **one** record. Proxy status = **Proxied** (orange cloud).
 
 | Type | Name | Target | Proxy |
 | --- | --- | --- | --- |
 | CNAME | `dash` | `<the cfargotunnel.com hostname from A>` | Proxied |
-| CNAME | `races` | **same target** | Proxied |
 
-3. Do **not** add `*.dash` for apps (nested wildcard / no free SSL).
-4. Do **not** add a catch-all `*` on `streblainnovations.com` that would collide with existing app CNAMEs. Each new dashboard gets its own `slug` CNAME like `races`.
-5. Optional cleanup: delete `grok_dashboards`, `*.grok_dashboards`, and `*.dash` if they exist.
+3. Do **not** add `*.dash`. Do **not** add a new CNAME per app.
+4. Optional: keep `races` CNAME if you want `races.streblainnovations.com` to 301 to `/races/` (Caddy already redirects). New apps do not need this.
+5. Optional cleanup: delete `grok_dashboards`, `*.grok_dashboards`, and `*.dash`.
 
 TTL can stay Auto.
 
@@ -52,31 +49,25 @@ TTL can stay Auto.
 ## C. Tunnel public hostnames
 
 1. Zero Trust → **Networks → Tunnels** → the same tunnel → **Public Hostname**.
-2. **Add** (or edit) hostname 1:
+2. **Add** (or edit) **one** hostname:
 
    - **Subdomain:** `dash`
    - **Domain:** `streblainnovations.com`
-   - **Path:** empty
+   - **Path:** empty (Caddy routes `/` vs `/races/` itself)
    - **Type:** HTTP
    - **URL:** `http://127.0.0.1:8080`
 
-3. **Add** (or edit) hostname 2:
+3. Save. Wait ~30 seconds.
 
-   - **Subdomain:** `races`
-   - **Domain:** `streblainnovations.com`
-   - **Path:** empty
-   - **Type:** HTTP
-   - **URL:** `http://127.0.0.1:8080`
+**If `cloudflared` is ever moved off this Pi**, change the URL to `http://192.168.0.251:8080`. While it runs here, `127.0.0.1:8080` is correct.
 
-4. Save. Wait ~30 seconds.
+**Do not** point this name at `:8111`, `:8001`, `:80`, or `:443`. Caddy for this platform is **:8080 only**.
 
-**If `cloudflared` is ever moved off this Pi**, change both URLs to `http://192.168.0.251:8080` instead. While it runs here, `127.0.0.1:8080` is correct.
+4. Optional: `races.streblainnovations.com` → same origin (Caddy 301s to `/races/`). Not required for new apps.
 
-**Do not** point these names at `:8111`, `:8001`, `:80`, or `:443`. Caddy for this platform is **:8080 only**.
+5. Remove leftover public hostnames `grok_dashboards…`, `*.grok_dashboards…`, `*.dash.streblainnovations.com` if present.
 
-5. Remove old public hostnames `grok_dashboards…`, `*.grok_dashboards…`, `*.dash.streblainnovations.com`, and `races.dash…` if present.
-
-Do **not** add a tunnel catch-all `*.streblainnovations.com` → :8080; that would steal other apps on this tunnel. Caddy already serves an existing `/var/www/apps/<slug>` when Host is `<slug>.streblainnovations.com`, so a new app only needs its own DNS + public hostname.
+Do **not** add a tunnel catch-all `*.streblainnovations.com` → :8080; that would steal other apps on this tunnel.
 
 ---
 
@@ -98,13 +89,13 @@ Do **not** add a tunnel catch-all `*.streblainnovations.com` → :8080; that wou
 From any browser:
 
 - https://dash.streblainnovations.com/ → portal page
-- https://races.streblainnovations.com/ → Garden Route race dashboard
+- https://dash.streblainnovations.com/races/ → Garden Route race dashboard
 
 From this Pi (does not need Cloudflare):
 
 ```bash
 curl -I -H 'Host: dash.streblainnovations.com' http://127.0.0.1:8080/
-curl -I -H 'Host: races.streblainnovations.com' http://127.0.0.1:8080/
+curl -I -H 'Host: dash.streblainnovations.com' http://127.0.0.1:8080/races/
 ```
 
 Expect `HTTP/1.1 200` from Caddy and race HTML with title **Garden Route Runs**.
