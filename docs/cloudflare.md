@@ -4,17 +4,17 @@ Christopher must do these clicks. This host cannot access the Cloudflare account
 
 **Goal:** one apex name plus one wildcard, both through the **existing** tunnel, both to Caddy on this machine. After this, new apps are only a folder + deploy — no new Cloudflare hostname.
 
-Public names:
+Public names (subdomains, not paths):
 
-- `https://grok_dashboards.streblainnovations.com/`
-- `https://<slug>.grok_dashboards.streblainnovations.com/` (example: `races`)
+- `https://dash.streblainnovations.com/`
+- `https://<slug>.dash.streblainnovations.com/` (example: `races`)
 
 Origin on this Pi:
 
 - Caddy HTTP: `127.0.0.1:8080` and `192.168.0.251:8080`
-- `cloudflared` is **already running on this same host**, so the tunnel origin should be `http://127.0.0.1:8080` (not `:8001`, not `:80`).
+- `cloudflared` is **already running on this same host**, so the tunnel origin should be `http://127.0.0.1:8080` (not `:8111`, not `:8001`, not `:80`).
 
-The public **502** happens when the tunnel still points at a dead port (logs on this machine have shown `192.168.0.251:8001` connection refused) or at nginx :8080 without the Grok `Host` header landing on Caddy.
+The public **502** happens when the tunnel still points at a dead port. Live ingress has used `http://192.168.0.251:8111` for the old `grok_dashboards` names — nothing listens on 8111. Point the **new** `dash` names at Caddy `:8080`.
 
 ---
 
@@ -38,11 +38,12 @@ The public **502** happens when the tunnel still points at a dead port (logs on 
 
 | Type | Name | Target | Proxy |
 | --- | --- | --- | --- |
-| CNAME | `grok_dashboards` | `<the cfargotunnel.com hostname from A>` | Proxied |
-| CNAME | `*.grok_dashboards` | **same target** | Proxied |
+| CNAME | `dash` | `<the cfargotunnel.com hostname from A>` | Proxied |
+| CNAME | `*.dash` | **same target** | Proxied |
 
-3. Do **not** create a new record for `races.grok_dashboards`. The wildcard covers it.
+3. Do **not** create a new record for `races.dash`. The wildcard covers it.
 4. TTL can stay Auto.
+5. Optional cleanup: delete `grok_dashboards` and `*.grok_dashboards` if you no longer want those names.
 
 If Cloudflare already created these when you added public hostnames, confirm they match the same tunnel and are proxied.
 
@@ -53,7 +54,7 @@ If Cloudflare already created these when you added public hostnames, confirm the
 1. Zero Trust → **Networks → Tunnels** → the same tunnel → **Public Hostname**.
 2. **Add** (or edit) hostname 1:
 
-   - **Subdomain:** `grok_dashboards`
+   - **Subdomain:** `dash`
    - **Domain:** `streblainnovations.com`
    - **Path:** empty
    - **Type:** HTTP
@@ -62,8 +63,8 @@ If Cloudflare already created these when you added public hostnames, confirm the
 3. **Add** (or edit) hostname 2 (wildcard):
 
    - **Subdomain:** `*`
-   - **Domain:** `grok_dashboards.streblainnovations.com`
-     (UI wording varies: you want Host `*.grok_dashboards.streblainnovations.com`)
+   - **Domain:** `dash.streblainnovations.com`
+     (UI wording varies: you want Host `*.dash.streblainnovations.com`)
    - **Path:** empty
    - **Type:** HTTP
    - **URL:** `http://127.0.0.1:8080`
@@ -72,9 +73,9 @@ If Cloudflare already created these when you added public hostnames, confirm the
 
 **If `cloudflared` is ever moved off this Pi**, change both URLs to `http://192.168.0.251:8080` instead. While it runs here, `127.0.0.1:8080` is correct.
 
-**Do not** point these names at `:8001`, `:80`, or `:443`. Caddy for this platform is **:8080 only**.
+**Do not** point these names at `:8111`, `:8001`, `:80`, or `:443`. Caddy for this platform is **:8080 only**.
 
-5. Optional: confirm there is no older public hostname for `grok_dashboards` still targeting a dead origin. Delete or overwrite it.
+5. Remove or update the old public hostnames `grok_dashboards.streblainnovations.com` and `*.grok_dashboards.streblainnovations.com` (they were aimed at `:8111`).
 
 ---
 
@@ -95,14 +96,14 @@ If Cloudflare already created these when you added public hostnames, confirm the
 
 From any browser:
 
-- https://grok_dashboards.streblainnovations.com/ → portal page
-- https://races.grok_dashboards.streblainnovations.com/ → Garden Route placeholder
+- https://dash.streblainnovations.com/ → portal page
+- https://races.dash.streblainnovations.com/ → Garden Route placeholder
 
 From this Pi (does not need Cloudflare):
 
 ```bash
-curl -I -H 'Host: grok_dashboards.streblainnovations.com' http://127.0.0.1:8080/
-curl -I -H 'Host: races.grok_dashboards.streblainnovations.com' http://127.0.0.1:8080/
+curl -I -H 'Host: dash.streblainnovations.com' http://127.0.0.1:8080/
+curl -I -H 'Host: races.dash.streblainnovations.com' http://127.0.0.1:8080/
 ```
 
 Expect `HTTP/1.1 200` from Caddy (not nginx).

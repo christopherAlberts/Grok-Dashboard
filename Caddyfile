@@ -10,7 +10,7 @@
 import /etc/caddy/Caddyfile.d/*.caddy
 
 # Apex / portal
-http://grok_dashboards.streblainnovations.com:8080 {
+http://dash.streblainnovations.com:8080 {
 	root * /var/www/apps/_index
 	encode gzip
 	header {
@@ -28,8 +28,8 @@ http://grok_dashboards.streblainnovations.com:8080 {
 }
 
 # Wildcard apps: leftmost label is the slug
-# races.grok_dashboards.streblainnovations.com → /var/www/apps/races
-http://*.grok_dashboards.streblainnovations.com:8080 {
+# races.dash.streblainnovations.com → /var/www/apps/races
+http://*.dash.streblainnovations.com:8080 {
 	root * /var/www/apps/{http.request.host.labels.3}
 	encode gzip
 	header {
@@ -55,5 +55,5 @@ http://*.grok_dashboards.streblainnovations.com:8080 {
 
 # Unmatched Host on :8080 (LAN probes without the public Host header)
 :8080 {
-	respond "Grok Dashboards origin on :8080. Send Host grok_dashboards.streblainnovations.com or <slug>.grok_dashboards.streblainnovations.com" 200
+	respond "Grok Dashboards origin on :8080. Send Host dash.streblainnovations.com or <slug>.dash.streblainnovations.com" 200
 }

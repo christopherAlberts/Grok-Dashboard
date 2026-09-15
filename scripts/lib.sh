@@ -2,7 +2,7 @@
 # Shared helpers for Grok Dashboard platform scripts.
 set -euo pipefail
 
-PLATFORM_DOMAIN="${PLATFORM_DOMAIN:-grok_dashboards.streblainnovations.com}"
+PLATFORM_DOMAIN="${PLATFORM_DOMAIN:-dash.streblainnovations.com}"
 APPS_ROOT="${APPS_ROOT:-/var/www/apps}"
 DEPLOY_LOG="${DEPLOY_LOG:-${APPS_ROOT}/_logs/deploy.log}"
 

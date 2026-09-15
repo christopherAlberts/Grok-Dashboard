@@ -6,23 +6,23 @@ Reusable static-site host on this machine. New dashboards are folders. They beco
 
 | What | URL |
 | --- | --- |
-| Portal (apex) | https://grok_dashboards.streblainnovations.com/ |
-| An app | https://`<slug>`.grok_dashboards.streblainnovations.com/ |
-| First stub | https://races.grok_dashboards.streblainnovations.com/ |
+| Portal (apex) | https://dash.streblainnovations.com/ |
+| An app | https://`<slug>`.dash.streblainnovations.com/ |
+| First stub | https://races.dash.streblainnovations.com/ |
 
 LAN origin: `http://192.168.0.251:8080` (Caddy, HTTP only). Cloudflare Tunnel terminates TLS.
 
 ## How a request is served
 
-1. Browser hits `https://races.grok_dashboards.streblainnovations.com`.
+1. Browser hits `https://races.dash.streblainnovations.com`.
 2. Cloudflare DNS (proxied CNAME) sends the name into the existing tunnel.
 3. `cloudflared` on this host forwards HTTP to `127.0.0.1:8080`.
 4. Caddy reads the `Host` header:
-   - `grok_dashboards.streblainnovations.com` → `/var/www/apps/_index`
-   - `*.grok_dashboards.streblainnovations.com` → `/var/www/apps/<leftmost-label>/`
+   - `dash.streblainnovations.com` → `/var/www/apps/_index`
+   - `*.dash.streblainnovations.com` → `/var/www/apps/<leftmost-label>/`
 5. The live files are copies of `apps/` in this git repo.
 
-You do **not** create a new Cloudflare public hostname per app. The wildcard `*.grok_dashboards` covers every slug.
+You do **not** create a new Cloudflare public hostname per app. The wildcard `*.dash` covers every slug.
 
 ## Add a new app (one command)
 
@@ -33,7 +33,7 @@ mkdir -p apps/my-app
 ./scripts/deploy-app.sh my-app
 ```
 
-That app is then live at `https://my-app.grok_dashboards.streblainnovations.com/` once the wildcard tunnel/DNS exists.
+That app is then live at `https://my-app.dash.streblainnovations.com/` once the wildcard tunnel/DNS exists.
 
 From this admin checkout the script uses sudo (the live tree is owned by `deploy`, who cannot read `/home/admin`). Remote agents should SSH as `deploy` and use `/home/deploy/Grok-Dashboard`.
 
@@ -67,12 +67,14 @@ Live tree: `/var/www/apps/<slug>/` owned by user `deploy`.
 
 This repo cannot log into Cloudflare. In Zero Trust, both of these public hostnames must point at **this Caddy**, not at an old origin port:
 
-- `grok_dashboards.streblainnovations.com` → `http://127.0.0.1:8080`
-- `*.grok_dashboards.streblainnovations.com` → `http://127.0.0.1:8080`
+- `dash.streblainnovations.com` → `http://127.0.0.1:8080`
+- `*.dash.streblainnovations.com` → `http://127.0.0.1:8080`
 
 Use `http://192.168.0.251:8080` only if `cloudflared` runs on a **different** machine.
 
-DNS (proxied CNAME) for `grok_dashboards` and `*.grok_dashboards` must target the same `*.cfargotunnel.com` hostname.
+DNS (proxied CNAME) for `dash` and `*.dash` must target the same `*.cfargotunnel.com` hostname.
+
+Remove or stop using the old `grok_dashboards` / `*.grok_dashboards` public hostnames (they were pointed at dead `:8111`).
 
 Step-by-step: [docs/cloudflare.md](docs/cloudflare.md).
 
