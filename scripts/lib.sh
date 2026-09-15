@@ -3,6 +3,8 @@
 set -euo pipefail
 
 PLATFORM_DOMAIN="${PLATFORM_DOMAIN:-dash.streblainnovations.com}"
+PORTAL_DOMAIN="${PORTAL_DOMAIN:-dash.streblainnovations.com}"
+APP_BASE_DOMAIN="${APP_BASE_DOMAIN:-streblainnovations.com}"
 APPS_ROOT="${APPS_ROOT:-/var/www/apps}"
 DEPLOY_LOG="${DEPLOY_LOG:-${APPS_ROOT}/_logs/deploy.log}"
 

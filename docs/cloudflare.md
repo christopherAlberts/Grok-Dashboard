@@ -2,19 +2,19 @@
 
 Christopher must do these clicks. This host cannot access the Cloudflare account.
 
-**Goal:** one apex name plus one wildcard, both through the **existing** tunnel, both to Caddy on this machine. After this, new apps are only a folder + deploy — no new Cloudflare hostname.
+**Goal:** portal + each app as a **first-level** subdomain of `streblainnovations.com`, both through the **existing** tunnel, both to Caddy on this machine.
 
-Public names (subdomains, not paths):
+Public names (subdomains, not paths — and **not** nested under `dash`):
 
-- `https://dash.streblainnovations.com/`
-- `https://<slug>.dash.streblainnovations.com/` (example: `races`)
+- `https://dash.streblainnovations.com/` — portal
+- `https://races.streblainnovations.com/` — Garden Route race dashboard
+
+Cloudflare Universal SSL covers `*.streblainnovations.com`. It does **not** cover `*.dash.streblainnovations.com`, so apps must not use that nested pattern.
 
 Origin on this Pi:
 
 - Caddy HTTP: `127.0.0.1:8080` and `192.168.0.251:8080`
 - `cloudflared` is **already running on this same host**, so the tunnel origin should be `http://127.0.0.1:8080` (not `:8111`, not `:8001`, not `:80`).
-
-The public **502** happens when the tunnel still points at a dead port. Live ingress has used `http://192.168.0.251:8111` for the old `grok_dashboards` names — nothing listens on 8111. Point the **new** `dash` names at Caddy `:8080`.
 
 ---
 
@@ -34,22 +34,22 @@ The public **502** happens when the tunnel still points at a dead port. Live ing
 ## B. DNS (zone `streblainnovations.com`)
 
 1. Cloudflare dashboard → **streblainnovations.com** → **DNS** → **Records**.
-2. Add (or edit) these two records. Proxy status = **Proxied** (orange cloud).
+2. Add (or edit) these records. Proxy status = **Proxied** (orange cloud).
 
 | Type | Name | Target | Proxy |
 | --- | --- | --- | --- |
 | CNAME | `dash` | `<the cfargotunnel.com hostname from A>` | Proxied |
-| CNAME | `*.dash` | **same target** | Proxied |
+| CNAME | `races` | **same target** | Proxied |
 
-3. Do **not** create a new record for `races.dash`. The wildcard covers it.
-4. TTL can stay Auto.
-5. Optional cleanup: delete `grok_dashboards` and `*.grok_dashboards` if you no longer want those names.
+3. Do **not** add `*.dash` for apps (nested wildcard / no free SSL).
+4. Do **not** add a catch-all `*` on `streblainnovations.com` that would collide with existing app CNAMEs. Each new dashboard gets its own `slug` CNAME like `races`.
+5. Optional cleanup: delete `grok_dashboards`, `*.grok_dashboards`, and `*.dash` if they exist.
 
-If Cloudflare already created these when you added public hostnames, confirm they match the same tunnel and are proxied.
+TTL can stay Auto.
 
 ---
 
-## C. Tunnel public hostnames (this fixes the 502)
+## C. Tunnel public hostnames
 
 1. Zero Trust → **Networks → Tunnels** → the same tunnel → **Public Hostname**.
 2. **Add** (or edit) hostname 1:
@@ -60,11 +60,10 @@ If Cloudflare already created these when you added public hostnames, confirm the
    - **Type:** HTTP
    - **URL:** `http://127.0.0.1:8080`
 
-3. **Add** (or edit) hostname 2 (wildcard):
+3. **Add** (or edit) hostname 2:
 
-   - **Subdomain:** `*`
-   - **Domain:** `dash.streblainnovations.com`
-     (UI wording varies: you want Host `*.dash.streblainnovations.com`)
+   - **Subdomain:** `races`
+   - **Domain:** `streblainnovations.com`
    - **Path:** empty
    - **Type:** HTTP
    - **URL:** `http://127.0.0.1:8080`
@@ -75,7 +74,9 @@ If Cloudflare already created these when you added public hostnames, confirm the
 
 **Do not** point these names at `:8111`, `:8001`, `:80`, or `:443`. Caddy for this platform is **:8080 only**.
 
-5. Remove or update the old public hostnames `grok_dashboards.streblainnovations.com` and `*.grok_dashboards.streblainnovations.com` (they were aimed at `:8111`).
+5. Remove old public hostnames `grok_dashboards…`, `*.grok_dashboards…`, `*.dash.streblainnovations.com`, and `races.dash…` if present.
+
+Do **not** add a tunnel catch-all `*.streblainnovations.com` → :8080; that would steal other apps on this tunnel. Caddy already serves an existing `/var/www/apps/<slug>` when Host is `<slug>.streblainnovations.com`, so a new app only needs its own DNS + public hostname.
 
 ---
 
@@ -97,15 +98,15 @@ If Cloudflare already created these when you added public hostnames, confirm the
 From any browser:
 
 - https://dash.streblainnovations.com/ → portal page
-- https://races.dash.streblainnovations.com/ → Garden Route placeholder
+- https://races.streblainnovations.com/ → Garden Route race dashboard
 
 From this Pi (does not need Cloudflare):
 
 ```bash
 curl -I -H 'Host: dash.streblainnovations.com' http://127.0.0.1:8080/
-curl -I -H 'Host: races.dash.streblainnovations.com' http://127.0.0.1:8080/
+curl -I -H 'Host: races.streblainnovations.com' http://127.0.0.1:8080/
 ```
 
-Expect `HTTP/1.1 200` from Caddy (not nginx).
+Expect `HTTP/1.1 200` from Caddy and race HTML with title **Garden Route Runs**.
 
 If local curl is 200 but the public URL is still 502, the tunnel public hostname URL is still wrong — re-do section C.

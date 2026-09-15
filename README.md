@@ -1,28 +1,29 @@
 # Grok Dashboards
 
-Reusable static-site host on this machine. New dashboards are folders. They become live on wildcard subdomains without adding a Cloudflare hostname each time.
+Reusable static-site host on this machine. New dashboards are folders. They become live as **first-level subdomains** of `streblainnovations.com` (not nested under `dash`). Cloudflare Universal SSL covers `*.streblainnovations.com` but not `*.dash.streblainnovations.com`.
 
 ## URLs
 
 | What | URL |
 | --- | --- |
-| Portal (apex) | https://dash.streblainnovations.com/ |
-| An app | https://`<slug>`.dash.streblainnovations.com/ |
-| First stub | https://races.dash.streblainnovations.com/ |
+| Portal | https://dash.streblainnovations.com/ |
+| An app | https://`<slug>`.streblainnovations.com/ |
+| Race dashboard | https://races.streblainnovations.com/ |
 
 LAN origin: `http://192.168.0.251:8080` (Caddy, HTTP only). Cloudflare Tunnel terminates TLS.
 
 ## How a request is served
 
-1. Browser hits `https://races.dash.streblainnovations.com`.
+1. Browser hits `https://races.streblainnovations.com`.
 2. Cloudflare DNS (proxied CNAME) sends the name into the existing tunnel.
 3. `cloudflared` on this host forwards HTTP to `127.0.0.1:8080`.
 4. Caddy reads the `Host` header:
    - `dash.streblainnovations.com` → `/var/www/apps/_index`
-   - `*.dash.streblainnovations.com` → `/var/www/apps/<leftmost-label>/`
+   - `races.streblainnovations.com` → `/var/www/apps/races`
+   - `<slug>.streblainnovations.com` → `/var/www/apps/<slug>` **only if that folder exists** (other tunnel hosts are not stolen)
 5. The live files are copies of `apps/` in this git repo.
 
-You do **not** create a new Cloudflare public hostname per app. The wildcard `*.dash` covers every slug.
+Coastal Hound Host names that still arrive on :8080 are reverse-proxied to nginx :8084.
 
 ## Add a new app (one command)
 
@@ -33,7 +34,7 @@ mkdir -p apps/my-app
 ./scripts/deploy-app.sh my-app
 ```
 
-That app is then live at `https://my-app.dash.streblainnovations.com/` once the wildcard tunnel/DNS exists.
+That app is then live at `https://my-app.streblainnovations.com/` after Cloudflare has a proxied CNAME + tunnel public hostname for that slug (same origin `http://127.0.0.1:8080`). Caddy does not need a reload if the folder exists.
 
 From this admin checkout the script uses sudo (the live tree is owned by `deploy`, who cannot read `/home/admin`). Remote agents should SSH as `deploy` and use `/home/deploy/Grok-Dashboard`.
 
@@ -55,7 +56,7 @@ First-time machine install (Caddy, `deploy` user, directories, Caddyfile):
 
 ```
 apps/_index/     portal (lists published slugs)
-apps/races/      Garden Route race dashboard stub
+apps/races/      Garden Route race dashboard
 Caddyfile        canonical Caddy config (:8080, auto_https off)
 scripts/         install-platform.sh, deploy-app.sh, sync-www.sh
 docs/            Cloudflare click-path + security/audit
@@ -63,18 +64,18 @@ docs/            Cloudflare click-path + security/audit
 
 Live tree: `/var/www/apps/<slug>/` owned by user `deploy`.
 
-## Cloudflare (required for the public 502 to go away)
+## Cloudflare
 
-This repo cannot log into Cloudflare. In Zero Trust, both of these public hostnames must point at **this Caddy**, not at an old origin port:
+This repo cannot log into Cloudflare. In Zero Trust, these public hostnames must point at **this Caddy**:
 
 - `dash.streblainnovations.com` → `http://127.0.0.1:8080`
-- `*.dash.streblainnovations.com` → `http://127.0.0.1:8080`
+- `races.streblainnovations.com` → `http://127.0.0.1:8080`
+
+Do **not** use `*.dash.streblainnovations.com` (nested wildcard; no free SSL). Do not point Grok names at `:8111`.
 
 Use `http://192.168.0.251:8080` only if `cloudflared` runs on a **different** machine.
 
-DNS (proxied CNAME) for `dash` and `*.dash` must target the same `*.cfargotunnel.com` hostname.
-
-Remove or stop using the old `grok_dashboards` / `*.grok_dashboards` public hostnames (they were pointed at dead `:8111`).
+DNS (proxied CNAME) `dash` and `races` → the same `*.cfargotunnel.com` hostname.
 
 Step-by-step: [docs/cloudflare.md](docs/cloudflare.md).
 

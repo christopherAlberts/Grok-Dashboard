@@ -9,7 +9,7 @@
 # drops a comment-only placeholder in this directory.
 import /etc/caddy/Caddyfile.d/*.caddy
 
-# Apex / portal
+# Portal
 http://dash.streblainnovations.com:8080 {
 	root * /var/www/apps/_index
 	encode gzip
@@ -27,33 +27,54 @@ http://dash.streblainnovations.com:8080 {
 	}
 }
 
-# Wildcard apps: leftmost label is the slug
-# races.dash.streblainnovations.com → /var/www/apps/races
-http://*.dash.streblainnovations.com:8080 {
-	root * /var/www/apps/{http.request.host.labels.3}
+# Explicit first app (Cloudflare Universal SSL covers *.streblainnovations.com, not *.dash.*)
+http://races.streblainnovations.com:8080 {
+	root * /var/www/apps/races
 	encode gzip
 	header {
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer-when-downgrade
 		X-Frame-Options SAMEORIGIN
-		X-App-Slug {http.request.host.labels.3}
+		X-App-Slug races
 	}
 	@hidden {
 		path /.git /.git/* /.env /.env.*
 	}
 	respond @hidden 404
-	handle_errors {
-		rewrite * /404.html
-		root * /var/www/apps/_index
-		file_server
-	}
-	try_files {path} {path}/ /index.html
 	file_server {
 		hide .git .gitignore .env
 	}
 }
 
+# Future apps: <slug>.streblainnovations.com → /var/www/apps/<slug>
+# Only if that folder exists. More-specific site blocks (dash, races, Coastal Hound)
+# win first, so other tunnel hostnames are not stolen.
+http://*.streblainnovations.com:8080 {
+	@published file /var/www/apps/{http.request.host.labels.2}/index.html
+	handle @published {
+		root * /var/www/apps/{http.request.host.labels.2}
+		encode gzip
+		header {
+			X-Content-Type-Options nosniff
+			Referrer-Policy no-referrer-when-downgrade
+			X-Frame-Options SAMEORIGIN
+			X-App-Slug {http.request.host.labels.2}
+		}
+		@hidden {
+			path /.git /.git/* /.env /.env.*
+		}
+		respond @hidden 404
+		try_files {path} {path}/ /index.html
+		file_server {
+			hide .git .gitignore .env
+		}
+	}
+	handle {
+		respond "No dashboard published for this hostname." 404
+	}
+}
+
 # Unmatched Host on :8080 (LAN probes without the public Host header)
 :8080 {
-	respond "Grok Dashboards origin on :8080. Send Host dash.streblainnovations.com or <slug>.dash.streblainnovations.com" 200
+	respond "Grok Dashboards origin on :8080. Send Host dash.streblainnovations.com or races.streblainnovations.com" 200
 }

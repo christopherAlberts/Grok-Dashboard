@@ -201,8 +201,8 @@ main() {
   record_status "after"
 
   log "Local Host-header checks:"
-  curl -sI -H "Host: ${PLATFORM_DOMAIN}" "http://127.0.0.1:8080/" | head -15 || true
-  curl -sI -H "Host: races.${PLATFORM_DOMAIN}" "http://127.0.0.1:8080/" | head -15 || true
+  curl -sI -H "Host: ${PORTAL_DOMAIN}" "http://127.0.0.1:8080/" | head -15 || true
+  curl -sI -H "Host: races.${APP_BASE_DOMAIN}" "http://127.0.0.1:8080/" | head -15 || true
 
   log "Done. Public TLS still depends on Cloudflare Tunnel hostnames pointing at http://127.0.0.1:8080"
 }

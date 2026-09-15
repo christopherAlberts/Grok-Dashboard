@@ -1,44 +1,981 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Garden Route races · Grok Dashboards</title>
-  <style>
-    :root { color-scheme: dark; --bg:#14120f; --ink:#e8e1d4; --muted:#9a917f; --line:#3a342b; --accent:#d4a017; --card:#1c1914; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font: 18px/1.55 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-      background: radial-gradient(900px 420px at 90% -10%, #2a2318 0%, transparent 55%), var(--bg);
-      color: var(--ink);
-    }
-    .page { max-width: 40rem; margin: 0 auto; padding: 3.5rem 1.5rem 4rem; }
-    .kicker { letter-spacing: .2em; text-transform: uppercase; font-size: .72rem; color: var(--accent); font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace; }
-    h1 { font-size: clamp(2rem, 5vw, 2.6rem); font-weight: 600; margin: .4rem 0 1rem; }
-    p { color: var(--muted); }
-    .panel {
-      margin-top: 2rem;
-      padding: 1.25rem 1.35rem;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-    }
-    .panel strong { color: var(--ink); font-weight: 600; }
-    a { color: var(--accent); }
-    .meta { margin-top: 2rem; font-size: .92rem; }
-  </style>
-</head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garden Route Runs · Sep 2026 – Feb 2027</title>
+<!-- Map: Leaflet + OpenStreetMap tiles via CDN (site is hosted; CDN is expected). -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+
+:root {
+  --bg: #0c1411;
+  --bg-2: #111c18;
+  --card: #16241f;
+  --card-hover: #1c2e27;
+  --line: #2a4038;
+  --text: #e8f0ec;
+  --muted: #9bb0a6;
+  --moss: #6fbf95;
+  --moss-dim: rgba(111,191,149,.16);
+  --gold: #e0b36a;
+  --gold-dim: rgba(224,179,106,.14);
+  --trail: #d9784a;
+  --trail-dim: rgba(217,120,74,.16);
+  --road: #6aa7d8;
+  --road-dim: rgba(106,167,216,.16);
+  --mixed: #c48ad4;
+  --mixed-dim: rgba(196,138,212,.16);
+  --danger: #e07a7a;
+  --ok: #7dce9a;
+  --shadow: 0 12px 40px rgba(0,0,0,.28);
+  --radius: 16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, -apple-system, sans-serif; line-height: 1.45; }
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(111,191,149,.12), transparent 55%),
+    radial-gradient(900px 400px at 100% 0%, rgba(106,167,216,.08), transparent 50%),
+    var(--bg);
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 64px; }
+header.hero {
+  display: grid; gap: 10px; margin-bottom: 28px;
+  padding: 0; border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--line); box-shadow: var(--shadow);
+  background: var(--card);
+}
+.hero-media {
+  position: relative; min-height: 180px; max-height: 280px;
+  background: #0a1210 center/cover no-repeat;
+}
+.hero-media img {
+  width: 100%; height: 100%; max-height: 280px; object-fit: cover; display: block;
+  filter: saturate(1.05) contrast(1.05);
+}
+.hero-media .hero-credit {
+  position: absolute; right: 10px; bottom: 8px;
+  background: rgba(0,0,0,.55); color: #d7e4de; font-size: 10px;
+  padding: 3px 8px; border-radius: 999px; max-width: min(70ch, 90%);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hero-body { padding: 18px 20px 16px; display: grid; gap: 10px; }
+.kicker { color: var(--moss); letter-spacing: .16em; font-size: 11px; text-transform: uppercase; font-weight: 700; }
+h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -.02em; }
+.sub { color: var(--muted); max-width: 62ch; }
+.home-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(224,179,106,.28);
+  padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; width: max-content;
+}
+.stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 10px; margin: 22px 0 20px;
+}
+.stat {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 14px 12px; box-shadow: var(--shadow);
+}
+.stat b { display: block; font-size: 1.55rem; font-variant-numeric: tabular-nums; color: var(--text); }
+.stat span { color: var(--muted); font-size: 12px; }
+.controls { display: grid; gap: 12px; margin-bottom: 18px; position: sticky; top: 0; z-index: 20;
+  background: linear-gradient(180deg, rgba(12,20,17,.96) 70%, rgba(12,20,17,.78));
+  padding: 10px 0 12px; backdrop-filter: blur(8px);
+}
+.view-switch {
+  display: inline-flex; gap: 4px; background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 4px; width: max-content; max-width: 100%;
+}
+.view-btn {
+  border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 13px;
+  padding: 8px 16px; border-radius: 9px; cursor: pointer;
+}
+.view-btn:hover { color: var(--text); }
+.view-btn.on { background: var(--moss-dim); color: var(--moss); }
+.search {
+  width: 100%; background: var(--bg-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px; font-size: 15px; outline: none;
+}
+.search:focus { border-color: var(--moss); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1px solid var(--line); background: var(--card); color: var(--muted);
+  border-radius: 999px; padding: 7px 12px; font-size: 13px; cursor: pointer; font-weight: 600;
+}
+.chip:hover { border-color: var(--moss); color: var(--text); }
+.chip.on { background: var(--moss-dim); color: var(--moss); border-color: rgba(111,191,149,.4); }
+.chip.gold.on { background: var(--gold-dim); color: var(--gold); border-color: rgba(224,179,106,.4); }
+.chip.trail.on { background: var(--trail-dim); color: var(--trail); border-color: rgba(217,120,74,.4); }
+.chip.road.on { background: var(--road-dim); color: var(--road); border-color: rgba(106,167,216,.4); }
+.chip.mixed.on { background: var(--mixed-dim); color: var(--mixed); border-color: rgba(196,138,212,.4); }
+.label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 4px 0 2px; font-weight: 700; }
+.meta-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; color: var(--muted); font-size: 13px; }
+.list { display: grid; gap: 14px; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 0; box-shadow: var(--shadow); display: grid; gap: 0; overflow: hidden;
+}
+.card.near { border-left: 4px solid var(--gold); }
+.card.tba { opacity: .96; }
+.card-media { position: relative; height: 168px; background: #0e1a16; }
+.card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-media.poster img { object-fit: contain; background: #0a1210; }
+.kind-pill {
+  position: absolute; left: 10px; top: 10px;
+  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.55); color: #e8f0ec;
+}
+.kind-pill.poster { color: var(--gold); }
+.kind-pill.destination { color: var(--moss); }
+.img-credit {
+  position: absolute; right: 8px; bottom: 8px; left: 8px;
+  font-size: 10px; color: #d5e2dc; background: rgba(0,0,0,.55);
+  padding: 4px 8px; border-radius: 8px; line-height: 1.3;
+  max-height: 2.7em; overflow: hidden;
+}
+.card-body { padding: 14px 16px 14px; display: grid; gap: 8px; }
+.top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.date { font-variant-numeric: tabular-nums; color: var(--moss); font-weight: 700; font-size: 13px; }
+.name { font-size: 1.12rem; font-weight: 700; letter-spacing: -.01em; }
+.place { color: var(--muted); font-size: 13px; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px; border: 1px solid transparent;
+}
+.b-trail { background: var(--trail-dim); color: var(--trail); }
+.b-road { background: var(--road-dim); color: var(--road); }
+.b-mixed { background: var(--mixed-dim); color: var(--mixed); }
+.b-near { background: var(--gold-dim); color: var(--gold); }
+.b-tba { background: rgba(224,179,106,.1); color: #d9c08a; }
+.b-sold { background: rgba(224,122,122,.14); color: var(--danger); }
+.b-open { background: var(--moss-dim); color: var(--ok); }
+.b-shirt-yes { background: var(--moss-dim); color: var(--ok); }
+.b-shirt-optional { background: var(--gold-dim); color: var(--gold); }
+.b-shirt-no { background: rgba(155,176,166,.12); color: var(--muted); }
+.b-shirt-unknown { background: rgba(155,176,166,.08); color: #7f948a; }
+.dists { color: var(--text); font-size: 13.5px; }
+.note { color: var(--muted); font-size: 13.5px; }
+.shirt-note { font-size: 12.5px; color: var(--gold); }
+a.link { color: var(--moss); text-decoration: none; font-weight: 600; font-size: 13px; }
+a.link:hover { text-decoration: underline; }
+.empty { text-align: center; color: var(--muted); padding: 40px 12px; }
+footer {
+  margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 13px; display: grid; gap: 8px;
+}
+footer a { color: var(--moss); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.panel { display: none; }
+.panel.on { display: block; }
+#mapPanel.on { display: block; }
+.cal-wrap {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); overflow: hidden;
+}
+.cal-nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 16px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.cal-nav-left { display: grid; gap: 4px; min-width: 0; }
+.cal-nav h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.01em; }
+.cal-count {
+  color: var(--muted); font-size: 13px; font-weight: 600;
+}
+.cal-count b { color: var(--moss); font-variant-numeric: tabular-nums; }
+.cal-nav .nav-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.cal-nav button {
+  border: 1px solid var(--line); background: var(--bg-2); color: var(--text);
+  border-radius: 10px; padding: 8px 14px; font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.cal-nav button:hover:not(:disabled) { border-color: var(--moss); color: var(--moss); }
+.cal-nav button:disabled { opacity: .35; cursor: not-allowed; }
+.cal-months {
+  display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 18px 10px;
+}
+.cal-months button {
+  border: 1px solid var(--line); background: transparent; color: var(--muted);
+  border-radius: 999px; padding: 7px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.cal-months button:hover { color: var(--text); border-color: rgba(111,191,149,.35); }
+.cal-months button.on { background: var(--moss-dim); color: var(--moss); border-color: rgba(111,191,149,.45); }
+.cal-legend {
+  display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  padding: 0 18px 14px; font-size: 12px; color: var(--muted); font-weight: 600;
+}
+.cal-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.cal-legend i {
+  display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+}
+.cal-legend i.trail { background: var(--trail); }
+.cal-legend i.road { background: var(--road); }
+.cal-legend i.mixed { background: var(--mixed); }
+.cal-legend .cal-legend-note { font-weight: 500; opacity: .9; }
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px;
+  background: var(--line); border-top: 1px solid var(--line);
+}
+.cal-dow {
+  background: var(--bg-2); color: var(--muted); font-size: 11px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; text-align: center; padding: 10px 4px;
+}
+.cal-day {
+  background: var(--card); min-height: 120px; padding: 8px;
+  display: flex; flex-direction: column; gap: 4px;
+  cursor: default; position: relative;
+}
+.cal-day.out { background: #101a16; opacity: .5; }
+.cal-day.has { cursor: pointer; }
+.cal-day.has:hover { background: var(--card-hover); }
+.cal-day.today {
+  background: linear-gradient(180deg, rgba(111,191,149,.1), transparent 42%), var(--card);
+  box-shadow: inset 0 0 0 1px rgba(111,191,149,.35);
+}
+.cal-day.today.has:hover {
+  background: linear-gradient(180deg, rgba(111,191,149,.12), transparent 42%), var(--card-hover);
+}
+.cal-daynum {
+  font-size: 12px; font-weight: 800; color: var(--muted);
+  font-variant-numeric: tabular-nums; flex: 0 0 auto;
+}
+.cal-day.today .cal-daynum {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 999px;
+  background: var(--moss); color: #0c1411; margin-bottom: 2px;
+}
+.cal-day-events {
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto; overflow-x: hidden;
+  max-height: 118px; min-height: 0; flex: 1 1 auto;
+  scrollbar-width: thin; scrollbar-color: rgba(155,176,166,.35) transparent;
+}
+.cal-day-events::-webkit-scrollbar { width: 5px; }
+.cal-day-events::-webkit-scrollbar-thumb {
+  background: rgba(155,176,166,.35); border-radius: 999px;
+}
+.cal-ev {
+  display: grid; gap: 1px; width: 100%; text-align: left; border: 0; border-radius: 8px;
+  padding: 5px 7px; font-size: 11.5px; font-weight: 700;
+  cursor: pointer; line-height: 1.25;
+  border-left: 3px solid transparent;
+}
+.cal-ev-name {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; word-break: break-word;
+}
+.cal-ev-loc {
+  font-size: 10px; font-weight: 600; opacity: .78;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-ev.trail { background: var(--trail-dim); color: var(--trail); border-left-color: var(--trail); }
+.cal-ev.road { background: var(--road-dim); color: var(--road); border-left-color: var(--road); }
+.cal-ev.mixed { background: var(--mixed-dim); color: var(--mixed); border-left-color: var(--mixed); }
+.cal-ev.span { opacity: .92; }
+.cal-ev.span .cal-ev-name::before {
+  content: "↳ "; font-weight: 800; opacity: .85;
+}
+.cal-agenda {
+  margin-top: 16px;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); overflow: hidden;
+}
+.cal-agenda-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.cal-agenda-head h3 { font-size: 1.05rem; font-weight: 700; }
+.cal-agenda-head span { color: var(--muted); font-size: 13px; font-weight: 600; }
+.cal-agenda-list { display: grid; gap: 0; }
+.cal-agenda-item {
+  display: grid; grid-template-columns: 108px 1fr auto; gap: 12px; align-items: start;
+  width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line);
+  background: transparent; color: inherit; padding: 14px 18px; cursor: pointer;
+}
+.cal-agenda-item:last-child { border-bottom: 0; }
+.cal-agenda-item:hover { background: var(--card-hover); }
+.cal-agenda-date {
+  font-variant-numeric: tabular-nums; color: var(--moss); font-weight: 700; font-size: 13px;
+  padding-top: 2px;
+}
+.cal-agenda-main { display: grid; gap: 4px; min-width: 0; }
+.cal-agenda-name { font-weight: 700; font-size: 0.98rem; letter-spacing: -.01em; }
+.cal-agenda-place { color: var(--muted); font-size: 13px; }
+.cal-agenda-meta {
+  display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: flex-start;
+}
+.map-shell {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); overflow: hidden; position: relative;
+}
+#map {
+  height: min(70vh, 640px); width: 100%; background: #0e1a16; z-index: 1;
+}
+.map-legend {
+  display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 14px; font-size: 12px; color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.map-legend i {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle;
+}
+.leaflet-popup-content-wrapper {
+  background: #16241f; color: #e8f0ec; border-radius: 12px; border: 1px solid #2a4038;
+  box-shadow: 0 8px 28px rgba(0,0,0,.35);
+}
+.leaflet-popup-tip { background: #16241f; }
+.leaflet-popup-content { margin: 12px 14px; font-size: 13px; line-height: 1.4; }
+.leaflet-popup-content strong { display: block; margin-bottom: 2px; }
+.leaflet-popup-content a { color: #6fbf95; }
+.leaflet-popup-content .pop-race { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #2a4038; }
+.leaflet-popup-content .pop-race:last-child { margin-bottom: 0; padding-bottom: 0; border: 0; }
+.leaflet-container a.leaflet-popup-close-button { color: #9bb0a6; }
+.marker-pin {
+  width: 18px; height: 18px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  border: 2px solid #0c1411; box-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+.marker-pin.near { box-shadow: 0 0 0 3px rgba(224,179,106,.55), 0 2px 6px rgba(0,0,0,.4); }
+.marker-pin.trail { background: #d9784a; }
+.marker-pin.road { background: #6aa7d8; }
+.marker-pin.mixed { background: #c48ad4; }
+.marker-count {
+  position: absolute; top: -6px; right: -8px; background: #e0b36a; color: #0c1411;
+  font-size: 10px; font-weight: 800; border-radius: 999px; min-width: 16px; height: 16px;
+  display: flex; align-items: center; justify-content: center; transform: rotate(45deg);
+  padding: 0 3px;
+}
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 1000;
+  display: none; align-items: flex-end; justify-content: center; padding: 16px;
+}
+.modal-backdrop.on { display: flex; }
+.modal {
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  max-width: 520px; width: 100%; max-height: min(85vh, 720px); overflow: auto;
+  box-shadow: var(--shadow); position: relative;
+}
+.modal-close {
+  position: sticky; top: 8px; float: right; margin: 8px 8px 0 0; z-index: 2;
+  border: 1px solid var(--line); background: var(--bg-2); color: var(--text);
+  width: 34px; height: 34px; border-radius: 999px; cursor: pointer; font-size: 18px; line-height: 1;
+}
+.modal .card { box-shadow: none; border: 0; border-radius: 0; }
+.modal .card.near { border-left: 0; }
+.modal-daylist { padding: 8px 16px 16px; display: grid; gap: 10px; }
+.modal-daylist h3 { font-size: 1rem; margin: 4px 0 2px; }
+@media (min-width: 720px) {
+  .card { grid-template-columns: 240px 1fr; }
+  .card-media { height: 100%; min-height: 180px; }
+  .modal-backdrop { align-items: center; }
+  .cal-day { min-height: 140px; }
+  .cal-day-events { max-height: 108px; }
+}
+@media (max-width: 720px) {
+  .cal-agenda-item { grid-template-columns: 1fr; gap: 8px; }
+  .cal-agenda-meta { justify-content: flex-start; }
+}
+@media (max-width: 560px) {
+  .cal-ev { font-size: 10.5px; padding: 4px 5px; }
+  .cal-day { min-height: 96px; padding: 6px; }
+  .cal-day-events { max-height: 78px; }
+  .cal-ev-loc { display: none; }
+  .view-btn { padding: 8px 12px; }
+}
+
+</style>
+<meta property="og:title" content="Garden Route Runs" />
+<meta property="og:description" content="A calendar and map of trail and road running races between Cape Town and Gqeberha from September 2026 to February 2027." />
+<meta property="og:url" content="https://mindful-lodge-gtq6.here.now/" />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="https://here.now/og/mindful-lodge-gtq6.jpg" />
+<meta property="og:image:width" content="1280" />
+<meta property="og:image:height" content="720" />
+<meta name="twitter:image" content="https://here.now/og/mindful-lodge-gtq6.jpg" />
+<meta name="twitter:card" content="summary_large_image" /></head>
 <body>
-  <main class="page">
-    <p class="kicker">Grok Dashboards</p>
-    <h1>Garden Route race dashboard</h1>
-    <p>This subdomain will host the Garden Route race dashboard for the season running September 2026 through February 2027.</p>
-    <div class="panel">
-      <p><strong>Placeholder only.</strong> Race calendars, results, and maps have not been loaded yet. Nothing here is live event data.</p>
+<div class="wrap">
+  <header class="hero">
+    <div class="hero-media">
+      <img src="images/hero-garden-route.jpg" alt="Garden Route coastline" loading="eager">
+      <div class="hero-credit" title="Garden Route — Diriye Amey from Locarno, Switzerland (CC BY 2.0) via Wikimedia Commons">Garden Route — Diriye Amey from Locarno, Switzerland (CC BY 2.0) via Wikimedia Commons</div>
     </div>
-    <p class="meta"><a href="https://dash.streblainnovations.com/">All dashboards</a></p>
-  </main>
+    <div class="hero-body">
+      <div class="kicker">Cape Town → Garden Route → Gqeberha</div>
+      <h1>Garden Route Runs · Sep 2026 – Feb 2027</h1>
+      <p class="sub">Trail and road races between Cape Town and Port Elizabeth for Christopher in George. Switch between Cards, Calendar, and Map. Local Mossel Bay–Knysna–Plett events are gold-edged.</p>
+      <div class="home-pill">Based in George · Garden Route</div>
+    </div>
+  </header>
+
+  <section class="stats" id="stats"></section>
+
+  <div class="controls">
+    <div class="view-switch" role="tablist" aria-label="View">
+      <button type="button" class="view-btn on" data-view="cards" role="tab" aria-selected="true">Cards</button>
+      <button type="button" class="view-btn" data-view="calendar" role="tab" aria-selected="false">Calendar</button>
+      <button type="button" class="view-btn" data-view="map" role="tab" aria-selected="false">Map</button>
+    </div>
+    <input class="search" id="q" type="search" placeholder="Search by name or town…" autocomplete="off">
+    <div>
+      <div class="label">Surface</div>
+      <div class="chips" id="typeChips"></div>
+    </div>
+    <div>
+      <div class="label">Month</div>
+      <div class="chips" id="monthChips"></div>
+    </div>
+    <div>
+      <div class="label">T-shirt</div>
+      <div class="chips" id="shirtChips"></div>
+    </div>
+    <div class="chips" id="extraChips"></div>
+    <div class="meta-row">
+      <span id="countLabel"></span>
+      <span>Filters apply to all views</span>
+    </div>
+  </div>
+
+  <div id="cardsPanel" class="panel on">
+    <div class="list" id="list"></div>
+    <p class="empty" id="empty" hidden>No races match those filters.</p>
+  </div>
+
+  <div id="calendarPanel" class="panel">
+    <div class="cal-wrap">
+      <div class="cal-nav">
+        <div class="cal-nav-left">
+          <h2 id="calTitle">September 2026</h2>
+          <div class="cal-count" id="calCount"><b>0</b> runs this month</div>
+        </div>
+        <div class="nav-btns">
+          <button type="button" id="calPrev" aria-label="Previous month">← Prev</button>
+          <button type="button" id="calNext" aria-label="Next month">Next →</button>
+        </div>
+      </div>
+      <div class="cal-months" id="calMonthStrip"></div>
+      <div class="cal-legend" aria-label="Race type legend">
+        <span><i class="trail"></i>Trail</span>
+        <span><i class="road"></i>Road</span>
+        <span><i class="mixed"></i>Mixed</span>
+        <span class="cal-legend-note">↳ = multi-day continuation · scroll inside busy days · agenda lists every run</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+    <div class="cal-agenda" id="calAgenda">
+      <div class="cal-agenda-head">
+        <h3 id="calAgendaTitle">All runs this month</h3>
+        <span id="calAgendaCount">0 races</span>
+      </div>
+      <div class="cal-agenda-list" id="calAgendaList"></div>
+    </div>
+    <p class="empty" id="calEmpty" hidden style="padding-top:16px">No races in this month for the current filters.</p>
+  </div>
+
+  <div id="mapPanel" class="panel">
+    <div class="map-shell">
+      <div id="map" role="application" aria-label="Race locations map"></div>
+      <div class="map-legend">
+        <span><i style="background:#d9784a"></i>Trail</span>
+        <span><i style="background:#6aa7d8"></i>Road</span>
+        <span><i style="background:#c48ad4"></i>Mixed</span>
+        <span>Gold ring = Near George</span>
+        <span>Markers use approximate town centroids</span>
+      </div>
+    </div>
+    <p class="empty" id="mapEmpty" hidden style="padding-top:16px">No races with locations match those filters.</p>
+  </div>
+
+  <footer>
+    <strong>Sources &amp; caveats</strong>
+    <p>Compiled 14 Sep 2026 from RunningCalendar, GoTrail, EntryNinja, Otter, Oyster Catcher, UTCT, WannaDo/Tower-2-Sea, Cape Cobra, Energy Events, Chapman’s Peak, and club listings. Dates marked TBA are estimated from prior years and must be confirmed with organisers. Entry status changes quickly.</p>
+    <p>Images: race <em>posters</em> are organisers’ event artwork (og:image / cover) saved for offline use with a credit link — not redistributed as our own. Where no poster was available, a freely licensed <em>destination</em> photo (Wikimedia Commons) is shown. Prefer the official site for current branding.</p>
+    <p>T-shirt badges: <em>included</em> = tee in the entry fee; <em>add-on</em> = optional paid shirt; <em>no tee listed</em> = organiser published merch/handouts without a shirt; <em>shirt?</em> = not stated — do not assume a shirt. Prefer the official entry form.</p>
+    <p>Map markers are approximate town centroids along the Cape Town–Garden Route–Gqeberha corridor (Leaflet + OpenStreetMap tiles). Multiple races in the same town share a marker with a combined popup.</p>
+    <p>Outside this window (so not listed): Two Oceans (Mar/Apr 2027), Sanlam Cape Town Marathon (May 2027), MUT by UTMB George (May 2027), Knysna Forest Marathon (July). Gun Run was 12–13 Sep 2026, just before the window.</p>
+    <div class="legend">
+      <span>Gold edge / gold ring = near George (Mossel Bay–Knysna–Plett corridor)</span>
+      <span>· Parkruns and cycling-only events excluded</span>
+    </div>
+  </footer>
+</div>
+
+<div class="modal-backdrop" id="modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script id="data" type="application/json">[{"id":"kwagga-100-2026","name":"Kwagga 100 Run","date":"2026-09-18","date_end":null,"date_display":"18 Sep 2026","date_status":"confirmed","date_note":null,"location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"road","distances":["10 km","5 km"],"status":"entries_open","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Local George club 10/5 km. Easy local option the same weekend as bigger Overberg races.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/george.jpg","imageCredit":"George — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"voet-van-afrika-2026","name":"Voet van Afrika Marathon","date":"2026-09-18","date_end":"2026-09-19","date_display":"18–19 Sep 2026","date_status":"confirmed","date_note":null,"location":"Bredasdorp","lat":-34.5322,"lng":20.0417,"region":"Overberg","type":"mixed","distances":["42.2 km","27.5 km trail","21.1 km","13.5 km trail","10 km","3.5 km"],"status":"entries_open","url":"https://runningcalendar.co.za/events/voet-van-afrika/2026","near_george":false,"note":"45th edition. Legendary Overberg road marathon plus two trail options. Tough, scenic, community-run. ~2.5h from George.","tshirt":"optional","tshirtNote":"Official PeakTiming/Onreg portal lets existing entrants 'add merchandise'. Shirt style and price not listed on the public page.","image":"images/posters/voet-van-afrika-2026.jpg","imageCredit":"Official event artwork — Voet van Afrika Marathon (https://runningcalendar.co.za/events/voet-van-afrika/2026)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/5923/voet_van_africa.jpg"},{"id":"chapmans-peak-half-2026","name":"Chapman's Peak Half Marathon","date":"2026-09-20","date_end":null,"date_display":"20 Sep 2026","date_status":"confirmed","date_note":null,"location":"Hout Bay","lat":-34.0486,"lng":18.3556,"region":"Cape Town","type":"road","distances":["21.1 km"],"status":"sold_out","url":"https://chapmanspeakhalf.co.za/","near_george":false,"note":"Iconic coastal half along Chapman's Peak Drive. Sold out. Hout Bay Harriers.","tshirt":"optional","tshirtNote":"Limited-edition event t-shirt R295, sold separately. Shirt orders closed 23 Aug 2026; substitutions transfer an existing shirt purchase.","image":"images/posters/chapmans-peak-half-2026.jpg","imageCredit":"Official event artwork — Chapman's Peak Half Marathon (https://chapmanspeakhalf.co.za/)","imageKind":"poster","imageSourceUrl":"https://chapmanspeakhalf.co.za/images/CC17_06_1400px.jpg"},{"id":"otter-terrex-2026","name":"Otter TERREX Trail Run (Retto Edition)","date":"2026-09-23","date_end":"2026-09-26","date_display":"23–26 Sep 2026","date_status":"confirmed","date_note":"Challenge 23–24 Sep; Race 25–26 Sep. Each has a 4 km prologue then 42 km.","location":"Tsitsikamma / Storms River","lat":-33.977,"lng":23.891,"region":"Garden Route","type":"trail","distances":["4 km prologue","42 km"],"status":"check_official","url":"https://otter.run/","near_george":true,"note":"The Grail of Trail. Technical coastal singletrack, river crossings, ~2,400 m gain. 2026 is Retto (west to east toward Nature's Valley). Challenge 11h cutoff; Race 9h. Prestige destination race ~2h from George.","tshirt":"yes","tshirtNote":"Complimentary Salomon Otter shirt in the goodie bag. Personalised technical race shirt sold separately (historically R499). Premium/corporate packages include the official race shirt.","image":"images/posters/otter-terrex-2026.jpg","imageCredit":"Official event artwork — Otter TERREX Trail Run (https://otter.run/)","imageKind":"poster","imageSourceUrl":"https://otter.run/wp-content/uploads/2026/02/Otter-Website-Header-2026.png"},{"id":"oyster-catcher-2026","name":"Oyster Catcher Trail Run","date":"2026-09-25","date_end":"2026-09-27","date_display":"25–27 Sep 2026","date_status":"confirmed","date_note":null,"location":"Boggomsbaai / Mossel Bay","lat":-34.241,"lng":21.925,"region":"Garden Route","type":"trail","distances":["2-day ~31 km","3-day ~46 km","15 km","16 km stages"],"status":"entries_open","url":"https://oyster-catcher.co.za/","near_george":true,"note":"Staged coastal trail from Gouritz Mouth to The Point via St Blaize. Beach, fynbos, cliffs. Ideal first multi-day. Limited entries (~150). Pre-entries closed 15 Sep or when full. Very close to George.","tshirt":"yes","tshirtNote":"Technical garment included in 2-day and 3-day entry.","image":"images/posters/oyster-catcher-2026.jpg","imageCredit":"Official event artwork — Oyster Catcher Trail Run (https://oyster-catcher.co.za/)","imageKind":"poster","imageSourceUrl":"https://oyster-catcher.co.za/wp-content/uploads/2018/10/1-43.jpg"},{"id":"hessequa-heritage-2026","name":"Hessequa Heritage Trail Run","date":"2026-09-26","date_end":null,"date_display":"26 Sep 2026","date_status":"confirmed","date_note":null,"location":"Stilbaai","lat":-34.375,"lng":21.4167,"region":"Garden Route West","type":"trail","distances":["16 km","5 km"],"status":"check_official","url":"https://runningcalendar.co.za/events/vlakte-marathon/2026","near_george":false,"note":"Coastal heritage-site trail around Stilbaai. Pre-race registration and start shuttles. ~1.5h west of George.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/stilbaai.jpg","imageCredit":"Stilbaai / Garden Route coastline — Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File:South_Africa_-_Garden_Route_(15458482290).jpg"},{"id":"mossel-bay-marathon-2026","name":"Mossel Bay Marathon","date":"2026-09-26","date_end":null,"date_display":"26 Sep 2026","date_status":"confirmed","date_note":null,"location":"Mossel Bay","lat":-34.1833,"lng":22.1333,"region":"Garden Route","type":"road","distances":["42.2 km","21.1 km","10 km","5 km"],"status":"entries_open","url":"https://runningcalendar.co.za/events/mossel-bay-marathon","near_george":true,"note":"Coastal road marathon from Santos Beach. Walkers welcome. Entries close 21 Sep. Closest full marathon to George this spring.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/mossel-bay.jpg","imageCredit":"Mossel Bay — Fihliwe from Hobart, Australia (CC BY-SA 2.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3AMossel_Bay_%26_Harbour_%281542795633%29.jpg"},{"id":"paarlberg-half-2026","name":"Paarlberg Half Marathon","date":"2026-09-26","date_end":null,"date_display":"26 Sep 2026","date_status":"confirmed","date_note":null,"location":"Paarl","lat":-33.7274,"lng":18.9756,"region":"Cape Winelands","type":"mixed","distances":["21.1 km","10 km","5 km"],"status":"check_official","url":"https://paarlberghalfmarathon.co.za/","near_george":false,"note":"Historic Paarl race with a notable gravel/berg section on the half. Limited field (~3,000). Good for trail runners who still want a road result.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/paarl.jpg","imageCredit":"Paarl — A3alb (CC BY-SA 3.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3AThe_mountain_commanage%2C_Paarlberg%2C_Paarl%2C_Western_Cape._Granite_Bosses._04.jpg"},{"id":"outeniqua-trail-challenge-2026","name":"Outeniqua Trail Challenge","date":"2026-10-01","date_end":null,"date_display":"TBA / expected October 2026","date_status":"provisional","date_note":"Last held 12 Oct 2025 (Garden Route Botanical Gardens). 2026 date not listed on GoTrail/RunningCalendar as of 14 Sep 2026 — may skip a year or announce late.","location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"trail","distances":["42 km","21 km","10 km"],"status":"tba","url":"https://thetrailtribe.co.za/outeniqua-trail-challenge/","near_george":true,"note":"Wild Spirit Events ultra through Outeniqua forests and fynbos (~2,200 m on the 42 km). Flag as unconfirmed until a 2026 listing appears.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/outeniqua-trail-challenge-2026.jpg","imageCredit":"Official event artwork — Outeniqua Trail Challenge (https://thetrailtribe.co.za/outeniqua-trail-challenge/)","imageKind":"poster","imageSourceUrl":"https://thetrailtribe.co.za/wp-content/uploads/2025/03/EVENT-1.webp"},{"id":"bayrun-nmb-2026","name":"BayRun with Discovery Vitality","date":"2026-10-03","date_end":null,"date_display":"3 Oct 2026","date_status":"confirmed","date_note":"Date/venue confirmed; fees and entry link not yet published.","location":"Gqeberha","lat":-33.9608,"lng":25.6022,"region":"Nelson Mandela Bay","type":"road","distances":["21.1 km","10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/events/bay-run-nelson-mandela-bay","near_george":false,"note":"Cape Recife High School, Admiralty Rd. PE club half along the bay. ~3.5h from George.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/bayrun-nmb-2026.jpg","imageCredit":"Official event artwork — BayRun with Discovery Vitality (https://runningcalendar.co.za/events/bay-run-nelson-mandela-bay)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/5951/73PUbMQFFfgiJHOJFmDiVOlP2QpOzcUs9vI0V4dr.webp"},{"id":"hout-bay-twin-peaks-2026","name":"Hout Bay Twin Peaks","date":"2026-10-03","date_end":null,"date_display":"3 Oct 2026","date_status":"confirmed","date_note":null,"location":"Hout Bay","lat":-34.0486,"lng":18.3556,"region":"Cape Town","type":"trail","distances":["42 km","30 km","16 km"],"status":"entries_open","url":"https://runningcalendar.co.za/events/hout-bay-twin-peaks","near_george":false,"note":"Energy Events mountain trails from Dunes Beach. Technical, scenic, compulsory kit. ITRA-listed. Strong weekend if already in Cape Town for Blouberg.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/hout-bay.jpg","imageCredit":"Hout Bay / Chapman's Peak — Warren Rohner (CC BY-SA 2.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3AHout_Bay.jpg"},{"id":"blouberg-marathon-2026","name":"Intercare Blouberg Marathon","date":"2026-10-03","date_end":"2026-10-04","date_display":"3–4 Oct 2026","date_status":"confirmed","date_note":"Marathon Saturday; half/10/5 Sunday.","location":"Bloubergstrand","lat":-33.7965,"lng":18.4614,"region":"Cape Town","type":"road","distances":["42.2 km","21.1 km","10 km","5 km"],"status":"sold_out","url":"https://runningcalendar.co.za/events/blouberg-marathon","near_george":false,"note":"Fast coastal Comrades/Two Oceans qualifier. Marathon Sat 3 Oct; shorter races Sun 4 Oct. Sold out (5 km beach fun run may still have spots).","tshirt":"optional","tshirtNote":"Race t-shirt R195 add-on. Free t-shirt to the first 500 paid marathon entries.","image":"images/posters/blouberg-marathon-2026.jpg","imageCredit":"Official event artwork — Intercare Blouberg Marathon (https://runningcalendar.co.za/events/blouberg-marathon)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/5902/blouberg-marathon.webp"},{"id":"mosselbaai-sportfees-2026","name":"Mosselbaai Sportfees","date":"2026-10-03","date_end":null,"date_display":"3 Oct 2026","date_status":"confirmed","date_note":null,"location":"Hartenbos","lat":-34.125,"lng":22.1,"region":"Garden Route","type":"road","distances":["15 km","4 km"],"status":"check_official","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Local Hartenbos sport-festival road race. Short, social, right on Christopher's doorstep.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/hartenbos.jpg","imageCredit":"Hartenbos — Fihliwe from Hobart, Australia (CC BY-SA 2.0) via Wikimedia Commons (nearby Mossel Bay destination; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3AMossel_Bay_%26_Harbour_%281542795633%29.jpg"},{"id":"meiringspoort-half-2026","name":"Meiringspoort Half Marathon","date":"2026-10-10","date_end":null,"date_display":"10 Oct 2026","date_status":"confirmed","date_note":null,"location":"De Rust","lat":-33.49,"lng":22.535,"region":"Klein Karoo","type":"road","distances":["21.1 km","12.5 km"],"status":"check_official","url":"https://runningcalendar.co.za/races/city/george","near_george":false,"note":"Spectacular poort road race through the Swartberg. Day-trip from George via the Outeniqua Pass / N12.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/de-rust.jpg","imageCredit":"De Rust / Meiringspoort area — Wikimedia Commons (Oudtshoorn/Klein Karoo destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ACango_Caves.jpg"},{"id":"crusaders-pe-2026","name":"Crusaders 21.1 km & 10 km","date":"2026-10-17","date_end":null,"date_display":"17 Oct 2026","date_status":"confirmed","date_note":null,"location":"Gqeberha","lat":-33.9608,"lng":25.6022,"region":"Nelson Mandela Bay","type":"road","distances":["21.1 km","10 km","5 km"],"status":"check_official","url":"https://startingline.co.za/events/crusaders-211km-10km-race-5km-fun-runwalk-cc2aecd5","near_george":false,"note":"Classic PE club half and 10 km with fun run. Same weekend as Fancourt — choose George or a PE road trip.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/crusaders-pe-2026.jpg","imageCredit":"Official event artwork — Crusaders 21.1 km & 10 km (https://startingline.co.za/events/crusaders-211km-10km-race-5km-fun-runwalk-cc2aecd5)","imageKind":"poster","imageSourceUrl":"https://api.startingline.co.za/api/storage/images/scraped-b2a513e3-1532-404f-a2f7-7a8faf489354.webp"},{"id":"fancourt-marathon-2026","name":"Fancourt Marathon","date":"2026-10-17","date_end":null,"date_display":"17 Oct 2026","date_status":"confirmed","date_note":null,"location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"mixed","distances":["42.2 km","21.1 km"],"status":"entries_open","url":"https://www.entryninja.com/events/83786-fancourt-marathon","near_george":true,"note":"Home-soil marathon from The Ridge at Fancourt. Mix of tar, dirt tracks and farm roads — gravel shoes optional. Entries close 10 Oct. Excellent local A-race.","tshirt":"no","tshirtNote":"Official race info lists medals and lucky prizes only — no t-shirt advertised for 2026.","image":"images/posters/fancourt-marathon-2026.jpg","imageCredit":"Official event artwork — Fancourt Marathon (https://www.entryninja.com/events/83786-fancourt-marathon)","imageKind":"poster","imageSourceUrl":"https://d1zwi51l39apzt.cloudfront.net/uploads/events/83786/NRRm87oZGnkCGskwX81D2ADqon88KhBO8CZwKOqG.jpg"},{"id":"cape-cobra-2026","name":"Cape Cobra Trail Marathon","date":"2026-10-24","date_end":null,"date_display":"24 Oct 2026","date_status":"confirmed","date_note":null,"location":"Cape Town (Table Mountain / Constantia)","lat":-33.994,"lng":18.415,"region":"Cape Town","type":"trail","distances":["42 km","33 km","21 km","10 km"],"status":"entries_open","url":"https://www.capecobratrail.com/","near_george":false,"note":"Wild TMNP ridgelines: 42 km ~2,000 m, 33 km ~1,800 m, 21 km ~1,000 m. Technical, prestige trail marathon. Finish-line festival at Constantia Uitsig.","tshirt":"yes","tshirtNote":"Limited-edition technical starters tee included in every entry, plus a branded bag and collectible patch.","image":"images/posters/cape-cobra-2026.jpg","imageCredit":"Official event artwork — Cape Cobra Trail Marathon (https://www.capecobratrail.com/)","imageKind":"poster","imageSourceUrl":"https://images.squarespace-cdn.com/content/67e5bd6f1f64ea0bc9a7450e/4b6d376c-d1a4-427d-889a-28ce8883bf63/logo+cape+cobra-3.png?content-type=image%2Fpng"},{"id":"eden-meander-2026","name":"Eden Meander 10 km / 5 km","date":"2026-10-24","date_end":null,"date_display":"24 Oct 2026","date_status":"confirmed","date_note":null,"location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"road","distances":["10 km","5 km"],"status":"check_official","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Local George fun run/walk. Easy training race; clashes with Cape Cobra and Montagu Pass.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/george.jpg","imageCredit":"George — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"montagu-pass-run-2026","name":"Montagu Pass Run","date":"2026-10-24","date_end":null,"date_display":"24 Oct 2026","date_status":"confirmed","date_note":null,"location":"Herold","lat":-33.85,"lng":22.45,"region":"Garden Route","type":"trail","distances":["17 km","10 km","5 km"],"status":"check_official","url":"https://gotrail.run/trail-running-calendar/south-africa/western-cape/saasveld","near_george":true,"note":"Thomas Bain pass above George: gravel, forest, Outeniqua views. The local trail highlight of late October. Highly suitable for trail runners based in George.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/herold.jpg","imageCredit":"Herold — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"two-views-2026","name":"Two Views Challenge","date":"2026-10-24","date_end":null,"date_display":"24 Oct 2026","date_status":"confirmed","date_note":null,"location":"Gqeberha","lat":-33.9608,"lng":25.6022,"region":"Nelson Mandela Bay","type":"road","distances":["10 km","5 km"],"status":"entries_open","url":"https://runningcalendar.co.za/events/two-views-challenge","near_george":false,"note":"Charlo AC 10/5 km from the Italian Social Club, Broadwood. Entries via Webtickets until 21 Oct. On-the-day entries from 05:00.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/two-views-2026.jpg","imageCredit":"Official event artwork — Two Views Challenge (https://runningcalendar.co.za/events/two-views-challenge)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/5177/z8qEAx7ZH1ZermfSa9iBGUecB2PfzHQTGzLzpDmb.webp"},{"id":"love-life-run-2026","name":"Love Life Run","date":"2026-11-04","date_end":null,"date_display":"4 Nov 2026","date_status":"confirmed","date_note":null,"location":"Wilderness","lat":-33.995,"lng":22.575,"region":"Garden Route","type":"road","distances":["10 km","5 km"],"status":"check_official","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Wednesday local 10/5 km in Wilderness. Handy midweek hit-out.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/wilderness.jpg","imageCredit":"Wilderness — Diriye Amey from Locarno, Switzerland (CC BY 2.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ASouth_Africa_-_Garden_Route_%2815458482290%29.jpg"},{"id":"george-used-car-parts-10k-2026","name":"George Used Car Parts 10 km Race","date":"2026-11-07","date_end":null,"date_display":"7 Nov 2026","date_status":"confirmed","date_note":null,"location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"road","distances":["10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Local Saturday 10/5 km. Same day as Winelands if staying home.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/george.jpg","imageCredit":"George — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"run-the-farm-herold-2026","name":"Run The Farm — Herold","date":"2026-11-07","date_end":null,"date_display":"7 Nov 2026","date_status":"confirmed","date_note":null,"location":"Herold","lat":-33.85,"lng":22.45,"region":"Garden Route","type":"trail","distances":["5 km loop (backyard ultra / fun run)"],"status":"check_official","url":"https://gotrail.run/trail-running-calendar/south-africa/western-cape/saasveld","near_george":true,"note":"12-hour 5 km loop endurance event at Herold Wines plus a single-lap fun run. Quirky local ultra format.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/herold.jpg","imageCredit":"Herold — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"winelands-marathon-2026","name":"Sportsmans Warehouse Winelands Marathon","date":"2026-11-07","date_end":null,"date_display":"7 Nov 2026","date_status":"confirmed","date_note":null,"location":"Stellenbosch","lat":-33.9346,"lng":18.8668,"region":"Cape Winelands","type":"road","distances":["42.2 km","21.1 km","10 km"],"status":"sold_out","url":"https://runningcalendar.co.za/events/winelands-marathon/2026","near_george":false,"note":"47th Helderberg Harriers showpiece through Stellenbosch/Somerset West. Comrades & Two Oceans 2027 qualifier. Sold out.","tshirt":"no","tshirtNote":"Entry includes a pair of Balega socks. No race t-shirt listed.","image":"images/posters/winelands-marathon-2026.jpg","imageCredit":"Official event artwork — Sportsmans Warehouse Winelands Marathon (https://runningcalendar.co.za/events/winelands-marathon/2026)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/6752/winelands-marathon.webp"},{"id":"knysna-waterfront-half-2026","name":"Knysna Waterfront Half Marathon","date":"2026-11-14","date_end":null,"date_display":"14 Nov 2026","date_status":"confirmed","date_note":"Date verified; online entries not open yet.","location":"Knysna","lat":-34.035,"lng":23.047,"region":"Garden Route","type":"road","distances":["21.1 km","10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/events/knysna-waterfront/2026","near_george":true,"note":"Knysna Marathon Club lagoon-side half. Timed (Ipico). No race-day entries. Pre-entry at KMC clubhouse 13 Nov 17:00–20:00.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/knysna.jpg","imageCredit":"Knysna — Neil Fantom (CC BY 2.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3AKnysna_lagoon_and_Thesens_Island_%2814010124923%29.jpg"},{"id":"utct-2026","name":"RMB Ultra-trail Cape Town","date":"2026-11-20","date_end":"2026-11-22","date_display":"20–22 Nov 2026","date_status":"confirmed","date_note":null,"location":"Cape Town","lat":-33.9249,"lng":18.4241,"region":"Cape Town","type":"trail","distances":["100 mile","100 km","55 km","35 km","23 km","16 km"],"status":"check_official","url":"https://www.ultratrailcapetown.com/","near_george":false,"note":"SA's premier mountain ultra festival on Table Mountain / Peninsula. 100 miler ~7,000 m+. International field. Book travel early. Clashes with Vlakte Marathon.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/utct-2026.jpg","imageCredit":"Official event artwork — Ultra-trail Cape Town (https://www.ultratrailcapetown.com/)","imageKind":"poster","imageSourceUrl":"https://static.wixstatic.com/media/bfac42_f649267e25b74935afab72da7f11e8bb~mv2.png"},{"id":"vlakte-marathon-2026","name":"Vlakte Marathon","date":"2026-11-20","date_end":"2026-11-21","date_display":"20–21 Nov 2026","date_status":"confirmed","date_note":null,"location":"Witsand / Heidelberg","lat":-34.395,"lng":20.84,"region":"Garden Route West","type":"road","distances":["42.2 km","21.1 km","10.4 km","5 km"],"status":"entries_open","url":"https://runningcalendar.co.za/events/vlakte-marathon/2026","near_george":false,"note":"Point-to-point from Heidelberg to Witsand Beach. Comrades/Two Oceans qualifier. Entries via EntryNinja close 16 Nov. ~1.5h west of George.","tshirt":"optional","tshirtNote":"T-shirt R255 and socks R150 listed as paid add-ons on RunningCalendar.","image":"images/posters/vlakte-marathon-2026.jpg","imageCredit":"Official event artwork — Vlakte Marathon (https://runningcalendar.co.za/events/vlakte-marathon/2026)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/6034/vlakte-marathon.webp"},{"id":"bergplaas-challenge-2026","name":"Bergplaas Challenge","date":"2026-11-28","date_end":null,"date_display":"28 Nov 2026","date_status":"confirmed","date_note":null,"location":"Wilderness","lat":-33.995,"lng":22.575,"region":"Garden Route","type":"trail","distances":["10 km","6 km"],"status":"check_official","url":"https://gotrail.run/trail-running-calendar/south-africa/western-cape/saasveld","near_george":true,"note":"Short Wilderness trail on the lakes/forest slopes. Perfect local recovery/fun run after UTCT or Vlakte.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/wilderness.jpg","imageCredit":"Wilderness — Diriye Amey from Locarno, Switzerland (CC BY 2.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ASouth_Africa_-_Garden_Route_%2815458482290%29.jpg"},{"id":"palm-tyres-half-2026","name":"Palm Tyres Half Marathon","date":"2026-12-05","date_end":null,"date_display":"5 Dec 2026","date_status":"confirmed","date_note":"Date, time and venue confirmed. Fees and entry link not yet published (assumed from 2025).","location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"road","distances":["21.1 km","10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/events/palm-tyres-half-marathon/2026","near_george":true,"note":"Grasshoppers / Outeniqua Harriers staple from Palm Tyres, Courtenay Street. Walkers welcome. Watch for entry opening.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/palm-tyres-half-2026.jpg","imageCredit":"Official event artwork — Palm Tyres Half Marathon (https://runningcalendar.co.za/events/palm-tyres-half-marathon/2026)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/6051/outeniqua-harriers-palm-tyre.webp"},{"id":"nmb-1city-2026","name":"NMB 1City Marathon","date":"2026-12-06","date_end":null,"date_display":"6 Dec 2026","date_status":"confirmed","date_note":null,"location":"Gqeberha","lat":-33.9608,"lng":25.6022,"region":"Nelson Mandela Bay","type":"road","distances":["42.2 km","21.1 km","10 km","5 km"],"status":"entries_open","url":"https://runningcalendar.co.za/events/nmb-1-city-marathon/2026","near_george":false,"note":"EP Athletics Comrades & Two Oceans qualifier from Baywest Mall. Marathon and half listed as free; 10/5 km R50. Entries via Webtickets. Strong PE destination race.","tshirt":"yes","tshirtNote":"Free t-shirt to the first 400 online entries for the 42.2 km or 21.1 km. Not stated for 10 km / 5 km.","image":"images/posters/nmb-1city-2026.jpg","imageCredit":"Official event artwork — NMB 1City Marathon (https://runningcalendar.co.za/events/nmb-1-city-marathon/2026)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/7513/01M1N6X655H4X94C28T1FHP1G4.webp"},{"id":"somerson-half-2026","name":"Somerson Half Marathon","date":"2026-12-12","date_end":null,"date_display":"12 Dec 2026","date_status":"confirmed","date_note":null,"location":"Hartenbos","lat":-34.125,"lng":22.1,"region":"Garden Route","type":"road","distances":["21.1 km","10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Hartenbos half in the December holiday cluster. Local, flat-ish coastal roads.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/hartenbos.jpg","imageCredit":"Hartenbos — Fihliwe from Hobart, Australia (CC BY-SA 2.0) via Wikimedia Commons (nearby Mossel Bay destination; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3AMossel_Bay_%26_Harbour_%281542795633%29.jpg"},{"id":"louis-massyn-rocket-2026","name":"Louis Massyn Rocket Run","date":"2026-12-14","date_end":null,"date_display":"14 Dec 2026","date_status":"confirmed","date_note":null,"location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"road","distances":["10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Monday local 10/5 km in George. Festive-season club race.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/george.jpg","imageCredit":"George — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"kmc-nite-race-2026","name":"KMC Nite Race","date":"2026-12-16","date_end":null,"date_display":"16 Dec 2026","date_status":"confirmed","date_note":null,"location":"Knysna","lat":-34.035,"lng":23.047,"region":"Garden Route","type":"road","distances":["10 km","5 km"],"status":"entries_open","url":"https://www.entryninja.com/events/84166-kmc-nite-race","near_george":true,"note":"Wednesday 18:00 start from Knysna Marathon Clubhouse, George Rex Drive. 10 km R125 / 5 km R65. Fun holiday night race.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/kmc-nite-race-2026.jpg","imageCredit":"Official event artwork — KMC Nite Race (https://www.entryninja.com/events/84166-kmc-nite-race)","imageKind":"poster","imageSourceUrl":"https://d1zwi51l39apzt.cloudfront.net/uploads/events/84166/fjdRJPStdl94gPkXoTqgrPwlr4ifIG6LT2Fo68W7.png"},{"id":"fancourt-10k-2026","name":"Fancourt 10 km","date":"2026-12-18","date_end":null,"date_display":"18 Dec 2026","date_status":"confirmed","date_note":null,"location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"road","distances":["10 km"],"status":"tba","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Estate 10 km at Fancourt. Fast, scenic, local.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/george.jpg","imageCredit":"George — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"moordkuil-2026","name":"Moordkuil Race","date":"2026-12-19","date_end":null,"date_display":"19 Dec 2026","date_status":"confirmed","date_note":null,"location":"Friemersheim","lat":-33.96,"lng":22.14,"region":"Garden Route","type":"road","distances":["15 km","4 km"],"status":"tba","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Rural race in the Friemersheim hills above Groot Brak. Rolling country roads; local flavour.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/friemersheim.jpg","imageCredit":"Friemersheim area — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (nearby George/Outeniqua destination photo; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"central-athletics-nature-2026","name":"Central Athletics 10 km Nature Run","date":"2026-12-20","date_end":null,"date_display":"20 Dec 2026","date_status":"confirmed","date_note":"Date/venue confirmed; fees not yet published.","location":"Cape Town (Zeekoevlei)","lat":-34.06,"lng":18.52,"region":"Cape Town","type":"road","distances":["10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/events/central-athletics-nature-run","near_george":false,"note":"False Bay Nature Reserve. Flat reserve roads. Cape Town holiday 10 km.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/central-athletics-nature-2026.jpg","imageCredit":"Official event artwork — Central Athletics 10 km Nature Run (https://runningcalendar.co.za/events/central-athletics-nature-run)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/5766/nature-run-2026.webp"},{"id":"tower2sea-2026","name":"Tower-2-Sea Trail Run","date":"2026-12-20","date_end":null,"date_display":"20 Dec 2026","date_status":"confirmed","date_note":null,"location":"Knysna","lat":-34.035,"lng":23.047,"region":"Garden Route","type":"trail","distances":["56 km","50 km","42 km","33 km"],"status":"check_official","url":"https://www.wannado.co.za/t2s","near_george":true,"note":"Sunrise start at Buffelsnek Fire Tower, descend through Knysna Forest (Outeniqua Hiking Trail / elephant paths) to Thesen Island or Simola. Mostly downhill but not easy. R1,250 all distances. Flagship Garden Route trail of December.","tshirt":"yes","tshirtNote":"Race shirt included in the R1,250 entry (all distances). Extra T2S socks optional at R150.","image":"images/posters/tower2sea-2026.jpg","imageCredit":"Official event artwork — Tower-2-Sea Trail Run (https://www.wannado.co.za/t2s)","imageKind":"poster","imageSourceUrl":"https://static.wixstatic.com/media/b877ad_d089d760b76947689a4b6dfd07bda394%7Emv2.png/v1/fit/w_2500,h_1330,al_c/b877ad_d089d760b76947689a4b6dfd07bda394%7Emv2.png"},{"id":"lappiesbaai-2026","name":"Lappiesbaai 10 km on the Beach","date":"2026-12-20","date_end":null,"date_display":"TBA / expected 20 Dec 2026","date_status":"provisional","date_note":"RunningCalendar lists 20 Dec 2026 as estimated from the previous year — not yet confirmed by organiser.","location":"Stilbaai","lat":-34.375,"lng":21.4167,"region":"Garden Route West","type":"mixed","distances":["10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/events/lappiesbaai-10km/2026","near_george":false,"note":"Beach run at Lappiesbaai, Still Bay West. Clashes with Tower-2-Sea. Confirm before travelling.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/lappiesbaai-2026.jpg","imageCredit":"Official event artwork — Lappiesbaai 10 km on the Beach (https://runningcalendar.co.za/events/lappiesbaai-10km/2026)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/6075/WT0hQuNza3USZ2ZzwmtWFcjaR12SvGe5CTalbhYg.webp"},{"id":"oujaarsdraffie-2026","name":"Oujaarsdraffie","date":"2026-12-31","date_end":null,"date_display":"31 Dec 2026","date_status":"confirmed","date_note":null,"location":"Hartenbos","lat":-34.125,"lng":22.1,"region":"Garden Route","type":"road","distances":["10 km","4 km"],"status":"check_official","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"New Year's Eve shuffle in Hartenbos. Social, local, hangover-optional.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/hartenbos.jpg","imageCredit":"Hartenbos — Fihliwe from Hobart, Australia (CC BY-SA 2.0) via Wikimedia Commons (nearby Mossel Bay destination; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3AMossel_Bay_%26_Harbour_%281542795633%29.jpg"},{"id":"stilbaai-nye-10k-2026","name":"Stilbaai 10 km","date":"2026-12-31","date_end":null,"date_display":"31 Dec 2026","date_status":"confirmed","date_note":null,"location":"Stilbaai","lat":-34.375,"lng":21.4167,"region":"Garden Route West","type":"road","distances":["10 km","6 km"],"status":"tba","url":"https://runningcalendar.co.za/races/city/george","near_george":false,"note":"New Year's Eve 10 km in Stilbaai. Pair with Oujaarsdraffie if choosing Hartenbos instead.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/stilbaai.jpg","imageCredit":"Stilbaai / Garden Route coastline — Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File:South_Africa_-_Garden_Route_(15458482290).jpg"},{"id":"first-choice-jbay-2027","name":"First Choice Race (Jeffreys Bay)","date":"2027-01-02","date_end":null,"date_display":"TBA / expected early January 2027","date_status":"provisional","date_note":"Traditionally early January in JBay (2025 was 4 Jan). 2027 date not confirmed.","location":"Jeffreys Bay","lat":-34.0507,"lng":24.9195,"region":"Eastern Cape coast","type":"road","distances":["21.1 km","10 km","5 km"],"status":"tba","url":"https://racepass.com/za/races/first-choice-race","near_george":false,"note":"Holiday coastal race in JBay. ~2.5h east of George. Confirm 2027 listing before planning.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/first-choice-jbay-2027.jpg","imageCredit":"Official event artwork — First Choice Race (Jeffreys Bay) (https://racepass.com/za/races/first-choice-race)","imageKind":"poster","imageSourceUrl":"https://cjrnxngsyoaogrmvwffu.supabase.co/storage/v1/object/public/api-uploads/races/a5aa8ed5-3aa7-4591-9a60-c2c521021f3e.jpg"},{"id":"chasing-cheese-burgers-2027","name":"Chasing Cheese Burgers","date":"2027-01-13","date_end":null,"date_display":"TBA / expected 13 Jan 2027","date_status":"provisional","date_note":"George city calendar lists Wed 13 Jan 2027 as date TBC.","location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"road","distances":["10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Quirky local midweek 10/5 km. Confirm closer to January.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/george.jpg","imageCredit":"George — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"red-men-trail-2027","name":"Red Men Trail Run","date":"2027-01-15","date_end":null,"date_display":"TBA / expected January 2027","date_status":"provisional","date_note":"Listed on GoTrail near Saasveld for January 2027 without a specific day.","location":"Herold","lat":-33.85,"lng":22.45,"region":"Garden Route","type":"trail","distances":["18 km","12 km","5 km"],"status":"tba","url":"https://gotrail.run/trail-running-calendar/south-africa/western-cape/saasveld","near_george":true,"note":"Solo trail from Herold Wine Farm through Outeniqua fynbos. Watch GoTrail / local clubs for the day.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/herold.jpg","imageCredit":"Herold — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"hope-church-night-trail-2027","name":"Hope Church Night Trail Run","date":"2027-01-22","date_end":null,"date_display":"TBA / expected 22 Jan 2027","date_status":"provisional","date_note":"George city calendar lists Fri 22 Jan 2027 as date TBC.","location":"George","lat":-33.964,"lng":22.4597,"region":"Garden Route","type":"trail","distances":["10 km","5 km","3 km"],"status":"tba","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Night trail in George. Headlamp required. Rare local night-trail option.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/george.jpg","imageCredit":"George — Mart Bouter (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ARSA_George_from_Outenigua_Pass1.JPG"},{"id":"two-lagoons-2027","name":"Two Lagoons","date":"2027-01-30","date_end":null,"date_display":"TBA / expected 30 Jan 2027","date_status":"provisional","date_note":"2026 edition was 31 Jan at Libertas Guest Farm, Hoekwil (30/10 km). George calendar lists Sat 30 Jan 2027 — not yet independently verified.","location":"Hoekwil","lat":-33.97,"lng":22.58,"region":"Garden Route","type":"road","distances":["30 km","10 km"],"status":"tba","url":"https://runningcalendar.co.za/events/two-lagoons/2026","near_george":true,"note":"Point-to-point / lake-country roads between Wilderness lakes. Organised by Cape Multisport Eden. Beautiful local long run.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/two-lagoons-2027.jpg","imageCredit":"Official event artwork — Two Lagoons (https://runningcalendar.co.za/events/two-lagoons/2026)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/5833/two-lagoons-2026.webp"},{"id":"de-dekke-spar-2027","name":"De Dekke Spar Run","date":"2027-02-06","date_end":null,"date_display":"TBA / expected 6 Feb 2027","date_status":"provisional","date_note":"George city calendar lists Sat 6 Feb 2027 as date TBC.","location":"Great Brak River","lat":-34.046,"lng":22.237,"region":"Garden Route","type":"road","distances":["21.1 km","10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/races/city/george","near_george":true,"note":"Great Brak half. Coastal village roads between Mossel Bay and George.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/great-brak.jpg","imageCredit":"Great Brak — Fihliwe from Hobart, Australia (CC BY-SA 2.0) via Wikimedia Commons (nearby Mossel Bay destination; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3AMossel_Bay_%26_Harbour_%281542795633%29.jpg"},{"id":"knysna-heads-2027","name":"Knysna Heads Marathon","date":"2027-02-13","date_end":null,"date_display":"TBA / expected 13 Feb 2027","date_status":"provisional","date_note":"RunningCalendar estimates Saturday 13 Feb 2027 from prior years — not yet confirmed by Knysna Marathon Club.","location":"Knysna (Thesen Islands)","lat":-34.048,"lng":23.048,"region":"Garden Route","type":"road","distances":["42.2 km","21.1 km","10 km","5 km"],"status":"tba","url":"https://runningcalendar.co.za/events/knysna-heads-marathon","near_george":true,"note":"Comrades & Two Oceans qualifier around the Knysna lagoon and Heads. Flagship local marathon of February if confirmed.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/knysna-heads-2027.jpg","imageCredit":"Official event artwork — Knysna Heads Marathon (https://runningcalendar.co.za/events/knysna-heads-marathon)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/5540/knysna-heads-marathon-2026.webp"},{"id":"peninsula-marathon-2027","name":"Balwin Sport Peninsula Marathon","date":"2027-02-21","date_end":null,"date_display":"TBA / expected 21 Feb 2027","date_status":"provisional","date_note":"Celtic Harriers / RunningCalendar list ~21 Feb 2027. Some third-party sites said 14 Feb — treat as unconfirmed late-February.","location":"Simon's Town / Cape Town","lat":-34.1935,"lng":18.4359,"region":"Cape Town","type":"road","distances":["42.2 km","21.1 km"],"status":"tba","url":"https://runningcalendar.co.za/events/cape-peninsula-marathon","near_george":false,"note":"Point-to-point along the False Bay coastline. One of SA's most scenic road marathons. Confirm official 2027 date with Celtic Harriers.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/peninsula-marathon-2027.jpg","imageCredit":"Official event artwork — Balwin Sport Peninsula Marathon (https://runningcalendar.co.za/events/cape-peninsula-marathon)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/5596/balwin-run-series-peninsula-marathon.webp"},{"id":"hermanus-trail-2027","name":"Hermanus Trail Run","date":"2027-02-26","date_end":"2027-02-28","date_display":"26–28 Feb 2027","date_status":"confirmed","date_note":null,"location":"Hermanus","lat":-34.4187,"lng":19.2345,"region":"Overberg","type":"trail","distances":["35 km","25 km","15 km","18 km beach"],"status":"entries_open","url":"https://energyevents.co.za/hermanus-trail-run/","near_george":false,"note":"Energy Events: Sat Fernkloof Nature Reserve (35/25/15 km, up to 1,500 m), Sun Walker Bay 18 km beach. Compulsory kit. Whale-coast trails. ~4h from George / easy Overberg weekend.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/hermanus.jpg","imageCredit":"Hermanus — Olga Ernst (CC BY-SA 4.0) via Wikimedia Commons (destination fallback; no race poster found)","imageKind":"destination","imageSourceUrl":"https://commons.wikimedia.org/wiki/File%3ACoastline_at_Hermanus%2C_Walker_Bay_%28South_Africa%29.jpg"},{"id":"cango-marathon-2027","name":"Infantry School Cango Marathon","date":"2027-02-26","date_end":"2027-02-27","date_display":"TBA / expected 26–27 Feb 2027","date_status":"provisional","date_note":"Estimated from previous years. Not yet confirmed.","location":"Oudtshoorn","lat":-33.5906,"lng":22.2014,"region":"Klein Karoo","type":"road","distances":["42.2 km","21.1 km","4 km"],"status":"tba","url":"https://runningcalendar.co.za/events/cango-marathon","near_george":false,"note":"Downhill-leaning marathon from Cango Caves / Ou Tol. Comrades/Two Oceans qualifier. ~1h over the Outeniqua from George. Clashes with Hermanus Trail Run.","tshirt":"unknown","tshirtNote":"Not stated on the public 2026/2027 listing. Confirm on the entry form.","image":"images/posters/cango-marathon-2027.jpg","imageCredit":"Official event artwork — Infantry School Cango Marathon (https://runningcalendar.co.za/events/cango-marathon)","imageKind":"poster","imageSourceUrl":"https://media.runningcalendar.co.za/5183/infantry-school-cango-marathon.webp"}]</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<script>
+const TODAY = "2026-09-14";
+const EVENTS = JSON.parse(document.getElementById("data").textContent);
+const MONTHS = [
+  ["2026-09","Sep 2026"],["2026-10","Oct 2026"],["2026-11","Nov 2026"],
+  ["2026-12","Dec 2026"],["2027-01","Jan 2027"],["2027-02","Feb 2027"]
+];
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const CAL_MIN = "2026-09";
+const CAL_MAX = "2027-02";
+
+const state = { type: "all", month: "all", shirt: "all", near: false, q: "", view: "cards", calMonth: "2026-09" };
+let map = null;
+let mapLayer = null;
+let mapReady = false;
+
+const statsEl = document.getElementById("stats");
+const listEl = document.getElementById("list");
+const emptyEl = document.getElementById("empty");
+const countLabel = document.getElementById("countLabel");
+const calGrid = document.getElementById("calGrid");
+const calTitle = document.getElementById("calTitle");
+const calEmpty = document.getElementById("calEmpty");
+const modal = document.getElementById("modal");
+const modalBody = document.getElementById("modalBody");
+
+function monthKey(e){ return (e.date || "").slice(0,7); }
+function isThisMonth(e){ return monthKey(e) === TODAY.slice(0,7); }
+function isUpcoming(e){ return (e.date || "") >= TODAY; }
+function parseYMD(s){
+  const [y,m,d] = s.split("-").map(Number);
+  return new Date(y, m-1, d);
+}
+function ymd(dt){
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth()+1).padStart(2,"0");
+  const d = String(dt.getDate()).padStart(2,"0");
+  return y+"-"+m+"-"+d;
+}
+function addDays(dt, n){
+  const x = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()+n);
+  return x;
+}
+function shirtLabel(v){
+  return { yes:"Shirt included", optional:"Shirt add-on", no:"No tee listed", unknown:"Shirt?" }[v] || "Shirt?";
+}
+function shirtClass(v){
+  return { yes:"b-shirt-yes", optional:"b-shirt-optional", no:"b-shirt-no", unknown:"b-shirt-unknown" }[v] || "b-shirt-unknown";
+}
+function statusLabel(s){
+  return { entries_open:"Entries open", sold_out:"Sold out", tba:"Entries TBA", check_official:"Check official" }[s] || s;
+}
+function esc(s){
+  return String(s||"").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderStats(){
+  const t = EVENTS.length;
+  const trail = EVENTS.filter(e => e.type==="trail").length;
+  const road = EVENTS.filter(e => e.type==="road").length;
+  const mixed = EVENTS.filter(e => e.type==="mixed").length;
+  const month = EVENTS.filter(isThisMonth).length;
+  const up = EVENTS.filter(isUpcoming).length;
+  const shirts = EVENTS.filter(e => e.tshirt==="yes" || e.tshirt==="optional").length;
+  const near = EVENTS.filter(e => e.near_george).length;
+  const posters = EVENTS.filter(e => e.imageKind==="poster").length;
+  const items = [
+    [t, "events"],
+    [trail, "trail"],
+    [road, "road"],
+    [mixed, "mixed"],
+    [month, "this month"],
+    [up, "upcoming"],
+    [shirts, "with a t-shirt"],
+    [near, "near George"],
+    [posters, "with poster art"]
+  ];
+  statsEl.innerHTML = items.map(([n,l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join("");
+}
+
+function chips(el, items, key, extraClass=""){
+  el.innerHTML = items.map(([val,label,cls]) =>
+    `<button type="button" class="chip ${cls||extraClass}" data-val="${val}">${label}</button>`
+  ).join("");
+  el.querySelectorAll(".chip").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state[key] = btn.dataset.val;
+      paintChips();
+      renderAll();
+    });
+  });
+}
+
+chips(document.getElementById("typeChips"), [
+  ["all","All"],
+  ["trail","Trail","trail"],
+  ["road","Road","road"],
+  ["mixed","Mixed","mixed"]
+], "type");
+
+chips(document.getElementById("monthChips"),
+  [["all","All months"], ...MONTHS], "month");
+
+chips(document.getElementById("shirtChips"), [
+  ["all","All shirts"],
+  ["yes","Included"],
+  ["optional","Add-on","gold"],
+  ["no","No tee listed"],
+  ["unknown","Not stated"]
+], "shirt");
+
+const extra = document.getElementById("extraChips");
+extra.innerHTML = `<button type="button" class="chip gold" id="nearBtn">Near George</button>
+<button type="button" class="chip" id="resetBtn">Reset</button>`;
+document.getElementById("nearBtn").addEventListener("click", () => {
+  state.near = !state.near; paintChips(); renderAll();
+});
+document.getElementById("resetBtn").addEventListener("click", () => {
+  state.type="all"; state.month="all"; state.shirt="all"; state.near=false; state.q="";
+  document.getElementById("q").value="";
+  paintChips(); renderAll();
+});
+
+function paintChips(){
+  document.querySelectorAll("#typeChips .chip").forEach(b => b.classList.toggle("on", b.dataset.val===state.type));
+  document.querySelectorAll("#monthChips .chip").forEach(b => b.classList.toggle("on", b.dataset.val===state.month));
+  document.querySelectorAll("#shirtChips .chip").forEach(b => b.classList.toggle("on", b.dataset.val===state.shirt));
+  document.getElementById("nearBtn").classList.toggle("on", state.near);
+}
+
+document.getElementById("q").addEventListener("input", e => {
+  state.q = e.target.value.trim().toLowerCase();
+  renderAll();
+});
+
+document.querySelectorAll(".view-btn").forEach(btn => {
+  btn.addEventListener("click", () => setView(btn.dataset.view));
+});
+
+function setView(view){
+  state.view = view;
+  document.querySelectorAll(".view-btn").forEach(b => {
+    const on = b.dataset.view === view;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.getElementById("cardsPanel").classList.toggle("on", view==="cards");
+  document.getElementById("calendarPanel").classList.toggle("on", view==="calendar");
+  document.getElementById("mapPanel").classList.toggle("on", view==="map");
+  if (view === "calendar") renderCalendar();
+  if (view === "map") {
+    ensureMap();
+    renderMap();
+    setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+  }
+}
+
+function filtered(opts){
+  const ignoreMonth = opts && opts.ignoreMonth;
+  return EVENTS.filter(e => {
+    if (state.type !== "all" && e.type !== state.type) return false;
+    if (!ignoreMonth && state.month !== "all" && monthKey(e) !== state.month) return false;
+    if (state.shirt !== "all" && e.tshirt !== state.shirt) return false;
+    if (state.near && !e.near_george) return false;
+    if (state.q) {
+      const hay = (e.name+" "+e.location+" "+e.region+" "+(e.distances||[]).join(" ")).toLowerCase();
+      if (!hay.includes(state.q)) return false;
+    }
+    return true;
+  });
+}
+function filteredForCalendar(){
+  // Calendar month nav is the month selector — ignore the month chip here.
+  return filtered({ ignoreMonth: true });
+}
+function touchesMonth(e, ym){
+  return eventDays(e).some(d => d.startsWith(ym));
+}
+
+function cardHTML(e, compact){
+  const tba = e.date_status === "provisional";
+  const dists = (e.distances||[]).join(" · ");
+  const stCls = e.status==="sold_out" ? "b-sold" : e.status==="entries_open" ? "b-open" : "b-tba";
+  const kind = e.imageKind === "poster" ? "poster" : "destination";
+  const img = e.image || "images/hero-garden-route.jpg";
+  const credit = e.imageCredit || "";
+  if (compact) {
+    return `<article class="card ${e.near_george?"near":""}">
+      <div class="card-body">
+        <div class="date">${esc(e.date_display)}${tba ? " · provisional" : ""}</div>
+        <div class="name">${esc(e.name)}</div>
+        <div class="place">${esc(e.location)} · ${esc(e.region)}</div>
+        <div class="badges">
+          <span class="badge b-${esc(e.type)}">${esc(e.type)}</span>
+          <span class="badge ${shirtClass(e.tshirt)}">${shirtLabel(e.tshirt)}</span>
+          ${e.near_george ? `<span class="badge b-near">Near George</span>` : ""}
+        </div>
+        <div class="dists">${esc(dists)}</div>
+        ${e.url ? `<a class="link" href="${esc(e.url)}" target="_blank" rel="noopener">Official / registration ↗</a>` : ""}
+      </div>
+    </article>`;
+  }
+  return `<article class="card ${e.near_george?"near":""} ${tba?"tba":""}">
+    <div class="card-media ${kind}">
+      <img src="${esc(img)}" alt="${esc(e.name)} — ${kind}" loading="lazy">
+      <span class="kind-pill ${kind}">${kind}</span>
+      <div class="img-credit" title="${esc(credit)}">${esc(credit)}</div>
+    </div>
+    <div class="card-body">
+      <div class="top">
+        <div>
+          <div class="date">${esc(e.date_display)}${tba ? " · provisional" : ""}</div>
+          <div class="name">${esc(e.name)}</div>
+          <div class="place">${esc(e.location)} · ${esc(e.region)}</div>
+        </div>
+        <div class="badges">
+          <span class="badge b-${esc(e.type)}">${esc(e.type)}</span>
+          <span class="badge ${shirtClass(e.tshirt)}">${shirtLabel(e.tshirt)}</span>
+          ${e.near_george ? `<span class="badge b-near">Near George</span>` : ""}
+          <span class="badge ${stCls}">${statusLabel(e.status)}</span>
+        </div>
+      </div>
+      <div class="dists">${esc(dists)}</div>
+      ${e.note ? `<p class="note">${esc(e.note)}</p>` : ""}
+      ${e.tshirtNote ? `<p class="shirt-note">T-shirt: ${esc(e.tshirtNote)}</p>` : ""}
+      ${e.date_note && tba ? `<p class="note">${esc(e.date_note)}</p>` : ""}
+      ${e.url ? `<a class="link" href="${esc(e.url)}" target="_blank" rel="noopener">Official / registration ↗</a>` : ""}
+    </div>
+  </article>`;
+}
+
+function renderList(){
+  const rows = filtered();
+  countLabel.textContent = rows.length + " shown of " + EVENTS.length;
+  listEl.innerHTML = rows.map(e => cardHTML(e, false)).join("");
+  emptyEl.hidden = rows.length > 0;
+}
+
+function eventDays(e){
+  const start = parseYMD(e.date);
+  const end = e.date_end ? parseYMD(e.date_end) : start;
+  const days = [];
+  for (let d = new Date(start); d <= end; d = addDays(d, 1)) days.push(ymd(d));
+  return days;
+}
+
+function eventsOnDate(rows, dateStr){
+  return rows.filter(e => eventDays(e).includes(dateStr));
+}
+
+function renderCalStrip(){
+  const strip = document.getElementById("calMonthStrip");
+  strip.innerHTML = MONTHS.map(([k,l]) =>
+    `<button type="button" data-m="${k}" class="${k===state.calMonth?"on":""}">${l}</button>`
+  ).join("");
+  strip.querySelectorAll("button").forEach(b => {
+    b.addEventListener("click", () => {
+      state.calMonth = b.dataset.m;
+      renderCalendar();
+    });
+  });
+}
+
+function renderCalendar(){
+  renderCalStrip();
+  const [yy, mm] = state.calMonth.split("-").map(Number);
+  const monthLabel = MONTH_NAMES[mm-1] + " " + yy;
+  calTitle.textContent = monthLabel;
+  document.getElementById("calPrev").disabled = state.calMonth <= CAL_MIN;
+  document.getElementById("calNext").disabled = state.calMonth >= CAL_MAX;
+
+  const rows = filteredForCalendar();
+  const monthRows = rows.filter(e => touchesMonth(e, state.calMonth))
+    .slice()
+    .sort((a,b) => (a.date||"").localeCompare(b.date||"") || a.name.localeCompare(b.name));
+  const monthCount = monthRows.length;
+  const countEl = document.getElementById("calCount");
+  countEl.innerHTML = `<b>${monthCount}</b> run${monthCount===1?"":"s"} this month`;
+  document.getElementById("calAgendaTitle").textContent = "All runs · " + monthLabel;
+  document.getElementById("calAgendaCount").textContent = monthCount + " race" + (monthCount===1?"":"s");
+
+  const first = new Date(yy, mm-1, 1);
+  const startPad = (first.getDay() + 6) % 7; // Monday-first
+  const daysInMonth = new Date(yy, mm, 0).getDate();
+  const cells = [];
+  for (let i=0;i<7;i++){
+    cells.push(`<div class="cal-dow">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][i]}</div>`);
+  }
+  for (let i=0;i<startPad;i++) cells.push(`<div class="cal-day out"></div>`);
+
+  for (let day=1; day<=daysInMonth; day++){
+    const dateStr = yy + "-" + String(mm).padStart(2,"0") + "-" + String(day).padStart(2,"0");
+    const onDay = eventsOnDate(rows, dateStr);
+    const isToday = dateStr === TODAY;
+    const evHtml = onDay.map(e => {
+      const multi = !!e.date_end;
+      const isCont = e.date !== dateStr;
+      const spanCls = isCont ? "span" : "";
+      const title = esc(e.name) + " — " + esc(e.location) + (multi ? " (multi-day)" : "");
+      const locBit = isCont ? "continues" : (multi ? "multi-day" : "");
+      return `<button type="button" class="cal-ev ${esc(e.type)} ${spanCls}" data-id="${esc(e.id)}" title="${title}">
+        <span class="cal-ev-name">${esc(e.name)}</span>
+        <span class="cal-ev-loc">${esc(e.location)}${locBit ? " · " + locBit : ""}</span>
+      </button>`;
+    }).join("");
+    cells.push(`<div class="cal-day ${onDay.length?"has":""} ${isToday?"today":""}" data-date="${dateStr}">
+      <div class="cal-daynum">${day}</div>
+      <div class="cal-day-events">${evHtml}</div>
+    </div>`);
+  }
+  const totalCells = startPad + daysInMonth;
+  const rem = (7 - (totalCells % 7)) % 7;
+  for (let i=0;i<rem;i++) cells.push(`<div class="cal-day out"></div>`);
+
+  calGrid.innerHTML = cells.join("");
+  calEmpty.hidden = monthCount > 0;
+  document.getElementById("calAgenda").hidden = monthCount === 0;
+
+  const agendaList = document.getElementById("calAgendaList");
+  agendaList.innerHTML = monthRows.map(e => {
+    return `<button type="button" class="cal-agenda-item" data-id="${esc(e.id)}">
+      <div class="cal-agenda-date">${esc(e.date_display)}</div>
+      <div class="cal-agenda-main">
+        <div class="cal-agenda-name">${esc(e.name)}</div>
+        <div class="cal-agenda-place">${esc(e.location)} · ${esc(e.region)}</div>
+      </div>
+      <div class="cal-agenda-meta">
+        <span class="badge b-${esc(e.type)}">${esc(e.type)}</span>
+        <span class="badge ${shirtClass(e.tshirt)}">${shirtLabel(e.tshirt)}</span>
+        ${e.near_george ? `<span class="badge b-near">Near George</span>` : ""}
+      </div>
+    </button>`;
+  }).join("");
+
+  function bindOpen(btn){
+    btn.addEventListener("click", ev => {
+      ev.stopPropagation();
+      const e = EVENTS.find(x => x.id === btn.dataset.id);
+      if (e) openModal([e], e.date_display);
+    });
+  }
+  calGrid.querySelectorAll(".cal-ev").forEach(bindOpen);
+  agendaList.querySelectorAll(".cal-agenda-item").forEach(bindOpen);
+  calGrid.querySelectorAll(".cal-day.has").forEach(cell => {
+    cell.addEventListener("click", () => {
+      const onDay = eventsOnDate(rows, cell.dataset.date);
+      if (onDay.length) openModal(onDay, cell.dataset.date);
+    });
+  });
+}
+
+document.getElementById("calPrev").addEventListener("click", () => {
+  const idx = MONTHS.findIndex(m => m[0] === state.calMonth);
+  if (idx > 0) { state.calMonth = MONTHS[idx-1][0]; renderCalendar(); }
+});
+document.getElementById("calNext").addEventListener("click", () => {
+  const idx = MONTHS.findIndex(m => m[0] === state.calMonth);
+  if (idx < MONTHS.length-1) { state.calMonth = MONTHS[idx+1][0]; renderCalendar(); }
+});
+
+function openModal(events, title){
+  modal.hidden = false;
+  modal.classList.add("on");
+  const head = `<div class="modal-daylist"><h3 id="modalTitle">${esc(title)}</h3></div>`;
+  modalBody.innerHTML = head + events.map(e => cardHTML(e, false)).join("");
+  document.body.style.overflow = "hidden";
+}
+function closeModal(){
+  modal.classList.remove("on");
+  modal.hidden = true;
+  modalBody.innerHTML = "";
+  document.body.style.overflow = "";
+}
+document.getElementById("modalClose").addEventListener("click", closeModal);
+modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+function ensureMap(){
+  if (mapReady || typeof L === "undefined") return;
+  map = L.map("map", { scrollWheelZoom: true });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+  mapLayer = L.layerGroup().addTo(map);
+  map.setView([-33.9, 22.5], 7);
+  mapReady = true;
+}
+
+function pinIcon(type, near, count){
+  const html = `<div class="marker-pin ${esc(type)} ${near?"near":""}">${count>1?`<span class="marker-count">${count}</span>`:""}</div>`;
+  return L.divIcon({
+    className: "",
+    html,
+    iconSize: [18, 18],
+    iconAnchor: [9, 18],
+    popupAnchor: [0, -16]
+  });
+}
+
+function renderMap(){
+  if (!mapReady) ensureMap();
+  if (!map || !mapLayer) return;
+  mapLayer.clearLayers();
+  const rows = filtered().filter(e => typeof e.lat === "number" && typeof e.lng === "number");
+  document.getElementById("mapEmpty").hidden = rows.length > 0;
+  if (!rows.length) return;
+
+  // Group by rounded lat/lng (town centroid)
+  const groups = new Map();
+  rows.forEach(e => {
+    const key = e.lat.toFixed(4) + "," + e.lng.toFixed(4) + "|" + e.location;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(e);
+  });
+
+  const bounds = [];
+  groups.forEach(list => {
+    // Prefer dominant type for colour; near if any near
+    const types = list.map(e => e.type);
+    const type = types.includes("trail") && types.every(t=>t==="trail") ? "trail"
+      : types.includes("road") && types.every(t=>t==="road") ? "road"
+      : types.includes("mixed") && types.every(t=>t==="mixed") ? "mixed"
+      : (types.filter(t=>t==="trail").length >= types.length/2 ? "trail"
+        : types.filter(t=>t==="road").length >= types.length/2 ? "road" : "mixed");
+    const near = list.some(e => e.near_george);
+    const lat = list[0].lat;
+    const lng = list[0].lng;
+    bounds.push([lat, lng]);
+    const popup = list.map(e => {
+      return `<div class="pop-race">
+        <strong>${esc(e.name)}</strong>
+        <div>${esc(e.date_display)} · <span style="color:var(--${e.type==="trail"?"trail":e.type==="road"?"road":"mixed"})">${esc(e.type)}</span>${e.near_george?" · Near George":""}</div>
+        <div style="color:#9bb0a6;font-size:12px">${esc(e.location)}</div>
+        ${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">Official site ↗</a>` : ""}
+      </div>`;
+    }).join("");
+    const marker = L.marker([lat, lng], { icon: pinIcon(type, near, list.length) });
+    marker.bindPopup(`<div>${popup}</div>`, { maxWidth: 280 });
+    marker.addTo(mapLayer);
+  });
+
+  if (bounds.length === 1) {
+    map.setView(bounds[0], 10);
+  } else {
+    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 10 });
+  }
+  setTimeout(() => map.invalidateSize(), 80);
+}
+
+function renderAll(){
+  const rows = filtered();
+  countLabel.textContent = rows.length + " shown of " + EVENTS.length;
+  if (state.month !== "all" && state.month >= CAL_MIN && state.month <= CAL_MAX) {
+    state.calMonth = state.month;
+  }
+  renderList();
+  if (state.view === "calendar") renderCalendar();
+  if (state.view === "map") renderMap();
+}
+
+renderStats();
+paintChips();
+renderCalStrip();
+renderList();
+renderCalendar();
+</script>
 </body>
 </html>
